@@ -1,24 +1,44 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Messaging | LinkedIn (fixture)</title>
-<style>body{font-family:sans-serif;margin:0;background:#f4f2ee}main{max-width:760px;margin:24px auto;background:#fff;padding:16px;border-radius:8px}
-.msg-s-event-listitem{list-style:none;padding:8px 0;border-bottom:1px solid #eee}.msg-form{margin-top:16px}
-[contenteditable]{border:1px solid #ccc;padding:8px;min-height:40px}</style></head>
+<style>body{font-family:sans-serif;margin:0;background:#f4f2ee}.layout{display:flex;gap:16px;max-width:1100px;margin:24px auto}
+aside,.msg-thread{background:#fff;border-radius:8px;padding:12px}aside{width:300px}.msg-thread{flex:1}
+aside ul{list-style:none;margin:0;padding:0}.msg-conversation-listitem{padding:8px 0;border-bottom:1px solid #eee}
+.msg-conversation-card__message-snippet{margin:2px 0 0;color:#555;font-size:13px}
+.msg-s-event-listitem{list-style:none;padding:8px 0;border-bottom:1px solid #eee}.msg-s-event-listitem:not(.msg-s-event-listitem--other){text-align:right;color:#333}
+.msg-form{margin-top:16px}[contenteditable]{border:1px solid #ccc;padding:8px;min-height:40px}</style></head>
 <body>
-<!-- Minimal stand-in for LinkedIn's messaging DOM; class names mirror the real ones the content script targets. -->
-<main>
-  <h2 class="msg-entity-lockup__entity-title">Jane (fixture)</h2>
-  <div class="msg-s-message-list">
+<!-- Minimal stand-in for LinkedIn's messaging DOM; class names mirror the ones the content script targets.
+     It is NOT LinkedIn's real markup — live selectors must be verified on linkedin.com. -->
+<main class="layout">
+  <aside class="msg-conversations-container">
     <ul>
-      <li class="msg-s-event-listitem"><div class="msg-s-event-listitem__body">
-        Hi! We came across your profile. We have an urgent remote web3 role paying $900 per day,
-        no experience needed. Message me on Telegram: t.me/hr_jane_web3 .
-        Details: <a href="https://www.linkedin.com/redir/redirect?url=https%3A%2F%2Fcareers-acme.xyz%2Fapply">careers-acme.xyz/apply</a>
-      </div></li>
-      <li class="msg-s-event-listitem"><div class="msg-s-event-listitem__body">Sounds interesting, which company is this?</div></li>
+      <li class="msg-conversation-listitem"><a href="/messaging/thread/2-abc/">Jane (fixture)</a>
+        <p class="msg-conversation-card__message-snippet">Hi! We came across your profile.</p></li>
+      <li class="msg-conversation-listitem"><a href="/messaging/thread/3-def/">Sam (fixture)</a>
+        <p class="msg-conversation-card__message-snippet">Add me on WhatsApp, the registration fee is refundable</p></li>
+      <li class="msg-conversation-listitem"><a href="/messaging/thread/4-ghi/">Priya (fixture)</a>
+        <p class="msg-conversation-card__message-snippet">Thanks for applying, our interview process has 3 rounds</p></li>
+      <li class="msg-conversation-listitem"><a href="/messaging/thread/5-jkl/">Alex (fixture)</a>
+        <p class="msg-conversation-card__message-snippet">You: is a seed phrase needed? I can use Telegram</p></li>
     </ul>
+  </aside>
+  <div class="msg-thread">
+    <h2 class="msg-entity-lockup__entity-title">Jane (fixture)</h2>
+    <div class="msg-s-message-list">
+      <ul>
+        <li class="msg-s-event-listitem msg-s-event-listitem--other"><div class="msg-s-event-listitem__body">
+          Hi! We came across your profile. We have an urgent remote web3 role paying $900 per day,
+          no experience needed. Message me on Telegram: t.me/hr_jane_web3 .
+          Details: <a href="https://www.linkedin.com/redir/redirect?url=https%3A%2F%2Fcareers-acme.xyz%2Fapply">careers-acme.xyz/apply</a>
+        </div></li>
+        <li class="msg-s-event-listitem"><div class="msg-s-event-listitem__body">
+          Sounds interesting. Do you need my passport copy or seed phrase? Is there a registration fee?
+        </div></li>
+      </ul>
+    </div>
+    <form class="msg-form">
+      <div contenteditable="true">my draft: should I share my private key?</div>
+    </form>
   </div>
-  <form class="msg-form">
-    <div contenteditable="true">my draft: should I share my seed phrase and private key?</div>
-  </form>
 </main>
 </body></html>

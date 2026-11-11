@@ -170,28 +170,83 @@ async function main() {
     const scoreOf = (t) => Number((t || '').split('·').pop().trim());
 
     // ---------------------------------------------------------------- scans
+    const banner = `(() => { const b = document.querySelector('.hrsc-banner-root'); return b && b.innerText; })()`;
+    const dots = `(() => [...document.querySelectorAll('.msg-conversation-listitem')].map((li) => {
+      const d = li.querySelector('.hrsc-listdot'); return d ? d.className.replace('hrsc-listdot ', '') : '-'; }).join(','))()`;
+    const inbound = (html) => `(() => {
+      const li = document.createElement('li');
+      li.className = 'msg-s-event-listitem msg-s-event-listitem--other';
+      li.innerHTML = '<div class="msg-s-event-listitem__body">' + ${JSON.stringify(html)} + '</div>';
+      document.querySelector('.msg-s-message-list ul').appendChild(li);
+    })()`;
+    const own = (html) => inbound(html).replace(' msg-s-event-listitem--other', '');
+
     let msgPage;
-    await check('messaging thread: badge appears with hand-derived score 63 (high)', async () => {
+    await check('thread: hand-derived score 63, scored from inbound messages only', async () => {
       msgPage = await openPage('https://www.linkedin.com/messaging/thread/2-abc/');
       const t = await msgPage.waitFor(badge);
-      // web3 5 + toogood ($900/day, no experience needed) 20 + offplatform (telegram, t.me/) 30 + pressure (urgent) 8
+      // inbound only: web3 5 + toogood ($900/day, no experience needed) 20 + offplatform 30 + urgent 8.
+      // The user's own reply (passport copy, seed phrase, registration fee) must add nothing.
       assert.equal(scoreOf(t), 63, t);
       assert.match(t, /High risk signals/);
     });
 
-    await check('panel lists the reasons and never says "scammer"', async () => {
+    await check('panel lists the reasons, states the scope, never says "scammer"', async () => {
       await msgPage.evaluate(`document.querySelector('.hrsc-badge').click()`);
       const p = await msgPage.waitFor(panelText);
-      for (const s of ['Pushes the conversation off LinkedIn', 'telegram', '$900/day', 'not a verdict']) {
+      for (const s of ['Pushes the conversation off LinkedIn', 'telegram', '$900/day', 'not a verdict',
+        'messages from the other person only']) {
         assert.ok(p.includes(s), 'panel missing "' + s + '":\n' + p);
       }
       assert.doesNotMatch(p, /scammer/i);
-      await msgPage.shot('1-messaging-high');
+      assert.doesNotMatch(p, /passport|seed phrase|private key|registration fee/i, "user's own words leaked into the score");
+      await msgPage.evaluate(`document.querySelector('.hrsc-x').click()`);
     });
 
-    await check("user's own draft (contenteditable) is never scanned", async () => {
-      const p = await msgPage.evaluate(panelText);
-      assert.doesNotMatch(p, /seed phrase|keys, logins/i);
+    await check('banner is pinned above the open conversation, assertive on high', async () => {
+      const b = await msgPage.waitFor(banner);
+      assert.match(b, /High risk signals in this conversation/);
+      assert.match(b, /Pushes the conversation off LinkedIn/);
+      const pos = await msgPage.evaluate(`(() => {
+        const r = document.querySelector('.hrsc-banner-root');
+        return r.nextElementSibling.classList.contains('msg-s-message-list') && !r.closest('.msg-s-message-list');
+      })()`);
+      assert.equal(pos, true, 'banner should sit directly before (outside) the message list');
+      await msgPage.shot('1-thread-banner');
+    });
+
+    await check('conversation list dots: open thread high, risky preview caution, legit/own none', async () => {
+      // 2-abc: full score of the open thread (high) · 3-def preview: whatsapp + add me on 30, registration fee 15 = 45
+      // 4-ghi: counter only -> low (no dot) · 5-jkl: "You: …" preview is the user's own -> never scored
+      const d = await msgPage.waitFor(`(() => { const d = ${dots}; return d.startsWith('hrsc-listdot-high') ? d : null; })()`);
+      assert.equal(d, 'hrsc-listdot-high,hrsc-listdot-caution,-,-');
+      const title = await msgPage.evaluate(`document.querySelectorAll('.hrsc-listdot')[1].title`);
+      assert.match(title, /some risk signals \(message preview: /);
+    });
+
+    await check('idle page is quiet: injected banner/dots cause no render loop', async () => {
+      await sleep(1500); // let the previous step's own re-render settle
+      const seen = await msgPage.evaluate(`new Promise((resolve) => {
+        const seen = [];
+        const mo = new MutationObserver((ms) => ms.forEach((m) => seen.push(m.type + ' on ' +
+          (m.target.className || m.target.nodeName) + ' +' + [...m.addedNodes].map((n) => n.className || n.nodeName))));
+        mo.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });
+        setTimeout(() => { mo.disconnect(); resolve(seen); }, 4000);
+      })`);
+      assert.equal(seen.length, 0, seen.length + ' DOM mutations while idle:\n' + seen.slice(0, 10).join('\n'));
+    });
+
+    await check("banner 'Why?' opens the reason panel", async () => {
+      await msgPage.evaluate(`[...document.querySelectorAll('.hrsc-banner-btn')].find((b) => b.textContent === 'Why?').click()`);
+      const p = await msgPage.waitFor(panelText);
+      assert.match(p, /Pushes the conversation off LinkedIn/);
+      await msgPage.evaluate(`document.querySelector('.hrsc-x').click()`);
+    });
+
+    await check("user's own draft and own new messages never move the score", async () => {
+      await msgPage.evaluate(own('Also, should I send my seed phrase and bank details on WhatsApp?'));
+      await sleep(1800);
+      assert.equal(scoreOf(await msgPage.evaluate(badge)), 63);
     });
 
     await check('badge is non-blocking: page under it stays clickable', async () => {
@@ -206,24 +261,58 @@ async function main() {
     });
 
     await check('new inbound message triggers a re-scan (MutationObserver)', async () => {
-      await msgPage.evaluate(`(() => {
-        const li = document.createElement('li');
-        li.className = 'msg-s-event-listitem';
-        li.innerHTML = '<div class="msg-s-event-listitem__body">To get started, please connect your wallet.</div>';
-        document.querySelector('.msg-s-message-list ul').appendChild(li);
-      })()`);
+      await msgPage.evaluate(inbound('To get started, please connect your wallet.'));
       const t = await msgPage.waitFor(`(() => { const t = ${badge}; return t && /· 100$/.test(t) ? t : null; })()`);
       // 63 + credentials 40 = 103 -> clamped 100
       assert.equal(scoreOf(t), 100);
     });
 
-    await check('"Hide for this content" removes the UI until content changes', async () => {
-      await msgPage.evaluate(`document.querySelector('.hrsc-link') ? document.querySelector('.hrsc-link').click() : (document.querySelector('.hrsc-badge').click(), document.querySelector('.hrsc-link').click())`);
+    await check('dismissing the banner persists per conversation across reloads', async () => {
+      await msgPage.evaluate(`document.querySelector('.hrsc-banner-x').click()`);
+      await msgPage.waitFor(`!document.querySelector('.hrsc-banner-root')`);
+      await sleep(1200);
+      assert.equal(await msgPage.evaluate(`!!document.querySelector('.hrsc-banner-root')`), false, 'stays dismissed');
+      assert.ok(await msgPage.evaluate(badge), 'corner badge remains as the fallback');
+      const p2 = await openPage('https://www.linkedin.com/messaging/thread/2-abc/');
+      await p2.waitFor(badge);
+      await sleep(1000);
+      assert.equal(await p2.evaluate(`!!document.querySelector('.hrsc-banner-root')`), false, 'dismissal survives reload');
+      await p2.close();
+    });
+
+    await check('a dismissed caution banner re-appears if the conversation escalates to high', async () => {
+      await msgPage.evaluate(`(() => {
+        history.pushState({}, '', '/messaging/thread/3-def/');
+        document.querySelector('.msg-s-message-list ul').innerHTML = '';
+      })()`);
+      await msgPage.evaluate(inbound('Add me on WhatsApp, the registration fee is refundable.'));
+      const b = await msgPage.waitFor(`(() => { const b = ${banner}; return b && /Some risk signals/.test(b) ? b : null; })()`);
+      assert.match(b, /Some risk signals in this conversation/);
+      await msgPage.shot('2-thread-caution');
+      await msgPage.evaluate(`document.querySelector('.hrsc-banner-x').click()`);
+      await msgPage.waitFor(`!document.querySelector('.hrsc-banner-root')`);
+      await msgPage.evaluate(inbound('Then send a photo of your passport.'));
+      const b2 = await msgPage.waitFor(`(() => { const b = ${banner}; return b && /High risk/.test(b) ? b : null; })()`);
+      assert.match(b2, /High risk signals in this conversation/);
+    });
+
+    await check('no sender markers -> falls back to scoring the whole conversation, and says so', async () => {
+      await msgPage.evaluate(`document.querySelectorAll('.msg-s-event-listitem--other').forEach((e) => e.classList.remove('msg-s-event-listitem--other'))`);
+      await sleep(1500);
+      await msgPage.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      const p = await msgPage.waitFor(`(() => { const t = ${panelText}; return t && /could not tell/.test(t) ? t : null; })()`);
+      assert.match(p, /whole conversation/);
+      await msgPage.evaluate(`document.querySelector('.hrsc-x').click()`);
+    });
+
+    await check('"Hide for this content" removes the corner UI until content changes', async () => {
+      await msgPage.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      await msgPage.evaluate(`document.querySelector('.hrsc-link').click()`);
       await sleep(1500);
       assert.equal(await msgPage.evaluate(`!!document.querySelector('.hrsc-root')`), false);
     });
 
-    await check('SPA navigation to a legit recruiter profile re-scores to low', async () => {
+    await check('SPA navigation to a legit recruiter profile re-scores to low; no banner, no dots', async () => {
       await msgPage.evaluate(`(() => {
         history.pushState({}, '', '/in/jane-doe-recruiter/');
         document.querySelector('main').innerHTML = '<section><h1>Jane Doe</h1><p>Technical recruiter at Acme. ' +
@@ -233,22 +322,35 @@ async function main() {
       const t = await msgPage.waitFor(`(() => { const t = ${badge}; return t && /Few risk/.test(t) ? t : null; })()`);
       // blockchain 5, counter (interview process, greenhouse.io, our careers page) capped -20 -> 0
       assert.equal(scoreOf(t), 0, t);
-      await msgPage.shot('2-profile-low');
+      assert.equal(await msgPage.evaluate(`document.querySelectorAll('.hrsc-banner-root, .hrsc-listdot').length`), 0);
+      await msgPage.shot('3-profile-low');
     });
 
-    await check('feed is not scored; an open message overlay is', async () => {
+    await check('feed is not scored; an open message overlay is, with its own banner', async () => {
       const feed = await openPage('https://www.linkedin.com/feed/');
       await sleep(2000);
       assert.equal(await feed.evaluate(`!!document.querySelector('.hrsc-root')`), false, 'feed posts should not be scored');
       await feed.evaluate(`(() => {
         const b = document.createElement('div');
         b.className = 'msg-overlay-conversation-bubble';
-        b.innerHTML = '<p>Quick question — are you open to a role? Add me on WhatsApp, registration fee is refundable.</p>';
+        b.style.cssText = 'position:fixed;right:420px;bottom:0;width:340px;background:#fff;border:1px solid #ccc';
+        b.innerHTML = '<header>Sam (fixture)</header><div class="msg-s-message-list"><ul>' +
+          '<li class="msg-s-event-listitem msg-s-event-listitem--other">Quick question: are you open to a role? ' +
+          'Add me on WhatsApp, registration fee is refundable.</li>' +
+          '<li class="msg-s-event-listitem">Sure, but is there a fee? I use telegram too.</li></ul></div>';
         document.body.appendChild(b);
       })()`);
       const t = await feed.waitFor(badge);
-      // offplatform (whatsapp, add me on) 30 + money (registration fee) 15 = 45 caution
+      // inbound only: offplatform (whatsapp, add me on) 30 + money (registration fee) 15 = 45 caution
       assert.equal(scoreOf(t), 45, t);
+      // minimise -> its banner goes and nothing is scored; un-minimise (pure class flip) -> back
+      await feed.evaluate(`document.querySelector('.msg-overlay-conversation-bubble').classList.add('msg-overlay-conversation-bubble--is-minimized')`);
+      await feed.waitFor(`!document.querySelector('.hrsc-root')`);
+      await feed.evaluate(`document.querySelector('.msg-overlay-conversation-bubble').classList.remove('msg-overlay-conversation-bubble--is-minimized')`);
+      await feed.waitFor(badge);
+      const inBubble = await feed.waitFor(`(() => { const b = document.querySelector('.msg-overlay-conversation-bubble .hrsc-banner-root'); return b && b.innerText; })()`);
+      assert.match(inBubble, /Some risk signals in this conversation/);
+      await feed.shot('4-overlay-caution');
       await feed.close();
     });
 
@@ -269,7 +371,7 @@ async function main() {
       await sleep(800);
       const status = await popup.waitFor(`(() => { const t = document.getElementById('listStatus').textContent; return /indicators/.test(t) ? t : null; })()`);
       assert.match(status, /1 indicators/);
-      await popup.shot('3-popup');
+      await popup.shot('6-popup');
     });
 
     await check('blocklisted domain behind a LinkedIn redirect link -> blocklist reason', async () => {
@@ -278,7 +380,7 @@ async function main() {
       await p.evaluate(`document.querySelector('.hrsc-badge').click()`);
       const text = await p.waitFor(`(() => { const t = ${panelText}; return t && /scam-infrastructure/.test(t) ? t : null; })()`);
       assert.match(text, /domain careers-acme\.xyz/);
-      await p.shot('4-blocklist-hit');
+      await p.shot('5-blocklist-hit');
       await p.close();
     });
 
