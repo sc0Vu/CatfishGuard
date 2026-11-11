@@ -1,0 +1,11 @@
+{
+  "schema": "catfishguard-blocklist",
+  "version": 1,
+  "updated": "2026-11-11",
+  "note": "Bundled seed. Infrastructure indicators only (domains, URLs, handles, wallets, emails). Never names of people.",
+  "domains": [],
+  "urls": [],
+  "handles": [],
+  "wallets": [],
+  "emails": []
+}
