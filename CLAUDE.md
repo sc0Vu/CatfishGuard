@@ -116,11 +116,23 @@ settings, and roadmap #1:
   panel says so;
 - the **corner badge** + panel stays as the fallback (worst unit; banner "Why?"
   opens it). All LinkedIn selectors live in `SEL` at the top of `content.js`.
-  They were verified against fixtures, **not yet against live linkedin.com**.
+  **Thread selectors verified against live LinkedIn (2026-11):** message list,
+  `--other` sender marker, `.msg-form` composer, and the list sitting in a
+  *column-reverse* container (so the banner anchors before
+  `.msg-s-message-list-container`). `test/e2e/fixtures/messaging-zh.html` is an
+  anonymised copy of that structure. **Still unverified:** conversation-list
+  item/snippet selectors and message overlays.
+- Keyword rules cover **English + Chinese (simplified/traditional)**. Term
+  boundaries are CJK-aware: Han/Kana/Thai characters never act as a boundary
+  barrier.
+- **Known gap (live example):** the GitHub-sourced "fake interview" pattern (web3
+  role, free scheduling link, "the lead is waiting in the meeting") scores
+  *low*. It isn't keyword-shaped. The fix belongs in roadmap #2 (claimed employer
+  vs link domain) and possibly a dev-lure category; see the zh analyzer test.
 
 ## Roadmap (build in this order; each is additive)
 1. ~~Thread banner + conversation-list dots + sender-scoped scanning~~ — built
-   (above); still needs a pass against live LinkedIn DOM.
+   (above); thread DOM verified live, list/overlay selectors still to verify.
 2. **Domain / brand-impersonation module** — the high-value, hard-to-evade signal.
    Claimed-employer vs the registrable domain of each link (needs a bundled Public
    Suffix List so `google.com.evil.ru` resolves to `evil.ru`), lookalike /
