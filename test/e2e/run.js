@@ -370,6 +370,11 @@ async function main() {
       const feed = await openPage('https://www.linkedin.com/feed/');
       await sleep(2000);
       assert.equal(await feed.evaluate(`!!document.querySelector('.hrsc-root')`), false, 'feed posts should not be scored');
+      // messaging-list popup: risky preview (45, caution) gets a dot; own "You: …" and the attachment row don't
+      const popupDots = await feed.waitFor(`(() => { const d = [...document.querySelectorAll('.msg-overlay-list-bubble__convo-item--v2')]
+        .map((r) => { const x = r.querySelector('.hrsc-listdot'); return x ? x.className.replace('hrsc-listdot ', '') : '-'; }).join(',');
+        return d.includes('hrsc') ? d : null; })()`);
+      assert.equal(popupDots, 'hrsc-listdot-caution,-,-');
       await feed.evaluate(`(() => {
         const b = document.createElement('div');
         b.className = 'msg-overlay-conversation-bubble';

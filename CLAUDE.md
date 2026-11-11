@@ -125,7 +125,11 @@ settings, and roadmap #1:
   `msg-conversations-container__convo-item-link--active`, so its dot uses the
   open thread's full score; previews are `Name: …` / `You: …` / `InMail • …`.
   Message hover chrome (`.msg-s-event-listitem__actions-container`) and
-  `.a11y-text` are excluded from scoring. **Still unverified:** message overlays.
+  `.a11y-text` are excluded from scoring. **Messaging-list popup verified:**
+  `.msg-overlay-list-bubble` uses div rows (`.msg-overlay-list-bubble__convo-item--v2`)
+  and `.msg-overlay-list-bubble__message-snippet--v2` previews. **Still
+  unverified:** an *open* chat popup (`.msg-overlay-conversation-bubble`) and its
+  minimised class.
 - Keyword rules cover **English + Chinese (simplified/traditional)**. Term
   boundaries are CJK-aware: Han/Kana/Thai characters never act as a boundary
   barrier.
@@ -136,7 +140,7 @@ settings, and roadmap #1:
 
 ## Roadmap (build in this order; each is additive)
 1. ~~Thread banner + conversation-list dots + sender-scoped scanning~~ — built
-   (above); thread + list DOM verified live, overlay selectors still to verify.
+   (above); thread, list and list-popup DOM verified live; open chat popup still to verify.
 2. **Domain / brand-impersonation module** — the high-value, hard-to-evade signal.
    Claimed-employer vs the registrable domain of each link (needs a bundled Public
    Suffix List so `google.com.evil.ru` resolves to `evil.ru`), lookalike /

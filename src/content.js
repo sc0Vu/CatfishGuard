@@ -42,8 +42,11 @@
     inboundClass: 'msg-s-event-listitem--other',
     overlay: '.msg-overlay-conversation-bubble',
     overlayMinClass: 'msg-overlay-conversation-bubble--is-minimized',
-    convoItem: '.msg-conversation-listitem, .msg-conversations-container__convo-item',
-    convoSnippet: '.msg-conversation-card__message-snippet, .msg-conversation-card__message-snippet-body',
+    // /messaging/ page rows are <li>; the bottom-corner messaging-list popup
+    // (.msg-overlay-list-bubble) uses div rows with a "--v2" class (live, 2026-11).
+    convoItem: '.msg-conversation-listitem, .msg-conversations-container__convo-item, .msg-overlay-list-bubble__convo-item--v2',
+    convoSnippet: '.msg-conversation-card__message-snippet, .msg-conversation-card__message-snippet-body, ' +
+      '.msg-overlay-list-bubble__message-snippet--v2',
     // Live list rows (2026-11) carry no thread link — the open row is marked by
     // this class instead. The href lookup stays as a cheap fallback.
     convoActive: '.msg-conversations-container__convo-item-link--active',
