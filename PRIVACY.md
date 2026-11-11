@@ -1,6 +1,6 @@
 # CatfishGuard privacy policy
 
-_Last updated: 2026-11-11 (reverse image search links)_
+_Last updated: 2026-11-11 (local custom rules)_
 
 CatfishGuard is a browser extension with a single purpose: flagging possible
 recruiter/job scams and phishing on LinkedIn by showing you which risk signals
@@ -39,6 +39,10 @@ appear on the page you are viewing.
   conversation's internal LinkedIn id** (not the id itself) plus the risk level and time is saved on your device (at
   most 500, oldest dropped), so the banner stays dismissed. No names, message
   text or profile data are stored. It is never synced or transmitted.
+- If you customise the rules (weights, your own phrases, brands, trusted
+  domains), they are saved in `chrome.storage.local` on your device and are
+  never synced or transmitted. **Export** writes them to a file on your
+  computer only when you click it.
 - Scores exist only in the page's memory and disappear when you close or reload
   it.
 
@@ -53,7 +57,7 @@ appear on the page you are viewing.
 ## Permissions and why
 | Permission | Why |
 |---|---|
-| `storage` | Save your settings, dismissed-banner hashes and the blocklist cache on your device. |
+| `storage` | Save your settings, custom rules, dismissed-banner hashes and the blocklist cache on your device. |
 | Host access to `raw.githubusercontent.com`, `gist.githubusercontent.com` | Download the public blocklist you chose. |
 | Content script on `*.linkedin.com` | Read the page you are viewing so it can be scored locally. |
 

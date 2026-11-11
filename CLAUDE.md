@@ -66,7 +66,13 @@ src/
                          (6h TTL), merge over the bundled seed, answer the content
                          script. Supports both blocklist schemas.
   popup.html / popup.js  settings: enable toggle, blocklist URL, refresh, re-scan,
-                         last-result for the active tab.
+                         photo-search toggle, last-result for the active tab,
+                         "Customize rules…" (opens options).
+  options.html / .js     local rule overrides (roadmap #5): weights/caps/off,
+                         extra + muted phrases, user brands, trusted domains,
+                         live preview, import/export/reset. Stored in
+                         chrome.storage.local `overrides`; validated by
+                         analyzer normalizeOverrides().
   styles.css             injected UI; light/dark; hrsc- prefixed; high z-index.
 data/
   blocklist.seed.json    bundled empty-but-valid seed (infrastructure only, no
@@ -182,9 +188,15 @@ settings, and roadmap #1:
    ("Check this page" button), NOT broad always-on host permissions. Reputation
    lookups send the URL off-device → opt-in only. Positioned as recruiter-specific
    + explainable, not a replacement for the browser's own Safe Browsing.
-5. **Optional local override page** — let a power user tune weights/terms for their
-   own install (`chrome.storage`, private, no network). Scratches the "adjust the
-   rules" itch without a public runtime file.
+5. ~~**Optional local override page**~~ — built (`src/options.*`). Overrides are
+   passed to `analyze(text, links, {overrides})` and compiled/cached there;
+   `normalizeOverrides` clamps weights (credentials min 20, negatives only for
+   `counter`), caps phrases (100/category, 300 total, 2–80 chars, literal),
+   refuses disabling/muting `credentials`, reduces brands/trusted entries to
+   registrable domains. Floors (credential 60, blocklist 60) aren't overridable.
+   `result.custom` drives the "Custom rules active" note. Domain-module weights
+   (impersonation/linkrisk/pattern) are not user-tunable yet.
+   Step 4 (page check) was skipped by the owner for now.
 
 **Backlog (noted, not scheduled):**
 - **Claimed employer vs sender's own headline.** Pull the claimed company from

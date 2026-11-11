@@ -130,7 +130,28 @@ be recognised, every entry is validated, list sizes are capped
 Nothing in a list is ever compiled as a regex.
 
 ## Tuning
-Edit `RULES` in `src/analyzer.js`, then add a test case in
+**For your own install, with no code:** open the popup and choose **Customize
+rules…** to open the options page. There you can:
+- change each category's per-phrase weight and maximum, or turn it off;
+- add your own phrases, in any language;
+- mute built-in phrases;
+- add your own brands (`peaq = peaq.xyz`) for the lookalike and
+  claimed-employer checks;
+- list trusted domains;
+- preview a message's score with your settings against the built-in ones;
+- export, import or reset.
+
+Settings stay in `chrome.storage.local` on that device.
+
+Everything is validated as untrusted input:
+- numbers are clamped and phrase count and length are capped;
+- phrases always match as plain text, never as patterns;
+- the credentials category can't be turned off or muted;
+- credential asks and blocklist hits always count as high risk.
+
+The panel says "Custom rules active" whenever your settings are in effect.
+
+**For the project:** edit `RULES` in `src/analyzer.js`, then add a test case in
 `test/analyzer.test.js` whose expected score you work out **by hand** from the
 weights.
 
