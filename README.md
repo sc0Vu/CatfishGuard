@@ -120,8 +120,9 @@ real MetaMask list. Set `CFG_SHOTS=dir` to save e2e screenshots.
   reasons are the useful part, not the number.
 - Keyword lists are evadable by construction. The blocklist and (planned)
   domain-impersonation checks are the harder signals to dodge.
-- LinkedIn changes its DOM. The conversation selectors have been checked against
-  the live site (2026-11); the conversation-list and overlay selectors haven't yet.
+- LinkedIn changes its DOM. The conversation and conversation-list selectors
+  have been checked against the live site (2026-11); the message-overlay
+  selectors haven't yet.
 - Keywords alone miss the developer-targeted "fake interview" pattern
   (GitHub-sourced cold message, web3 role, scheduling link, "they're waiting in
   the meeting"). The planned domain/impersonation check is aimed at it. Fallbacks: `<main>`

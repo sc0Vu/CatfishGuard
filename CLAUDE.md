@@ -120,8 +120,12 @@ settings, and roadmap #1:
   `--other` sender marker, `.msg-form` composer, and the list sitting in a
   *column-reverse* container (so the banner anchors before
   `.msg-s-message-list-container`). `test/e2e/fixtures/messaging-zh.html` is an
-  anonymised copy of that structure. **Still unverified:** conversation-list
-  item/snippet selectors and message overlays.
+  anonymised copy of that structure. **Conversation list verified too:** rows
+  have *no* thread link; the open row is marked
+  `msg-conversations-container__convo-item-link--active`, so its dot uses the
+  open thread's full score; previews are `Name: …` / `You: …` / `InMail • …`.
+  Message hover chrome (`.msg-s-event-listitem__actions-container`) and
+  `.a11y-text` are excluded from scoring. **Still unverified:** message overlays.
 - Keyword rules cover **English + Chinese (simplified/traditional)**. Term
   boundaries are CJK-aware: Han/Kana/Thai characters never act as a boundary
   barrier.
@@ -132,7 +136,7 @@ settings, and roadmap #1:
 
 ## Roadmap (build in this order; each is additive)
 1. ~~Thread banner + conversation-list dots + sender-scoped scanning~~ — built
-   (above); thread DOM verified live, list/overlay selectors still to verify.
+   (above); thread + list DOM verified live, overlay selectors still to verify.
 2. **Domain / brand-impersonation module** — the high-value, hard-to-evade signal.
    Claimed-employer vs the registrable domain of each link (needs a bundled Public
    Suffix List so `google.com.evil.ru` resolves to `evil.ru`), lookalike /
