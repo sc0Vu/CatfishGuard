@@ -115,6 +115,7 @@ async function loadState() {
   if (!st) return;
   presets = st.presets || [];
   $('enabled').checked = st.settings.enabled;
+  $('photoSearch').checked = st.settings.photoSearch;
   $('url').value = st.settings.blocklistUrl;
   showMeta(st.meta, st.settings);
 }
@@ -150,6 +151,9 @@ $('refresh').addEventListener('click', async () => {
 $('enabled').addEventListener('change', async () => {
   await sendBg({ type: 'cfg:saveSettings', settings: { enabled: $('enabled').checked } });
   setTimeout(async () => showResult(await sendTab({ type: 'cfg:getResult' })), 1200);
+});
+$('photoSearch').addEventListener('change', () => {
+  sendBg({ type: 'cfg:saveSettings', settings: { photoSearch: $('photoSearch').checked } });
 });
 $('rescan').addEventListener('click', async () => {
   $('result').textContent = 'Scanning…';

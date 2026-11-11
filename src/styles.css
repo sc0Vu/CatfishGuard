@@ -148,6 +148,25 @@
 }
 .hrsc-note { margin-top: 3px; font-size: 12px; color: var(--hrsc-muted); }
 
+.hrsc-photo {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--hrsc-chip);
+}
+.hrsc-photo-thumb {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+.hrsc-photo-body { min-width: 0; font-size: 12px; }
+.hrsc-photo-link { font-size: 12px; }
+
 .hrsc-foot { display: flex; justify-content: flex-end; margin-top: 6px; }
 .hrsc-link { color: var(--hrsc-link) !important; font-size: 12px; text-decoration: underline; padding: 2px 0 !important; }
 

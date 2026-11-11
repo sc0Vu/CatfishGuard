@@ -53,6 +53,7 @@
     // Live list rows (2026-11) carry no thread link — the open row is marked by
     // this class instead. The href lookup stays as a cheap fallback.
     convoActive: '.msg-conversations-container__convo-item-link--active',
+    eventPhoto: 'img.msg-s-event-listitem__profile-picture', // inside each event (live, 2026-11)
     convoLink: 'a[href*="/messaging/thread/"]',
     threadProfileLink: '.msg-thread__link-to-profile',
     jobRoots: ['.jobs-search__job-details--container', '.jobs-details', '.job-view-layout', '.jobs-description', 'main'],
@@ -78,6 +79,7 @@
   };
 
   let enabled = true;
+  let photoSearch = true;
   let alive = true;
   let scanning = false;
   let rescanQueued = false;
@@ -225,6 +227,48 @@
   }
 
   /** Inbound-only nodes for a conversation, when the DOM marks senders. */
+  // -------------------------------------------------------------------------
+  // reverse image search (roadmap #3): links only, nothing is sent unless the
+  // user clicks; only LinkedIn's own image host is ever offered.
+  // -------------------------------------------------------------------------
+  const PHOTO_SEARCH = [
+    { name: 'Google Lens', url: (src) => 'https://lens.google.com/uploadbyurl?url=' + encodeURIComponent(src) },
+    { name: 'TinEye', url: (src) => 'https://tineye.com/search?url=' + encodeURIComponent(src) },
+  ];
+
+  function licdnPhoto(img) {
+    if (!img || !img.getAttribute) return null;
+    const src = img.currentSrc || img.src || '';
+    let u;
+    try { u = new URL(src); } catch (_) { return null; }
+    if (u.protocol !== 'https:' || !/(^|\.)licdn\.com$/.test(u.hostname)) return null;
+    return /profile-(?:display|framed)photo/.test(u.pathname) ? u.href : null;
+  }
+
+  /** The other person's photo for a conversation (verified live: the avatar
+   *  inside a --other event), or the largest profile photo on a profile page. */
+  function findPhoto(u, scope) {
+    if (u.kind === 'page') {
+      if (pageContext() !== 'profile') return null;
+      let best = null;
+      let bestArea = 0;
+      u.root.querySelectorAll('img').forEach((img) => {
+        const src = licdnPhoto(img);
+        if (!src || img.closest(OWN_UI)) return;
+        const r = img.getBoundingClientRect();
+        const area = r.width * r.height;
+        if (area > bestArea) { best = src; bestArea = area; }
+      });
+      return best;
+    }
+    if (scope !== 'inbound') return null; // can't tell whose face it is
+    for (const ev of u.root.querySelectorAll(SEL.event + '.' + SEL.inboundClass)) {
+      const src = licdnPhoto(ev.querySelector(SEL.eventPhoto));
+      if (src) return src;
+    }
+    return null;
+  }
+
   function scopeNodes(unit) {
     if (unit.kind === 'page') return { scope: 'page', nodes: [unit.root] };
     const events = Array.from(unit.root.querySelectorAll(SEL.event));
@@ -287,7 +331,7 @@
       unitCache.set(u.uid, { key, result });
     }
     if (u.threadId) sessionBands.set(u.threadId, { band: result.band, why: summary(result) });
-    return Object.assign({}, u, { key, result, scope });
+    return Object.assign({}, u, { key, result, scope, photo: findPhoto(u, scope) });
   }
 
   function worst() {
@@ -550,6 +594,33 @@
       panel.appendChild(list);
     }
 
+    if (photoSearch && shown.photo) {
+      const box = el('div', 'hrsc-photo');
+      const thumb = el('img', 'hrsc-photo-thumb');
+      thumb.src = shown.photo;
+      thumb.alt = '';
+      thumb.referrerPolicy = 'no-referrer';
+      box.appendChild(thumb);
+      const body = el('div', 'hrsc-photo-body');
+      const row = el('div', 'hrsc-photo-row', 'Check this photo elsewhere: ');
+      PHOTO_SEARCH.forEach((s, i) => {
+        if (i) row.appendChild(document.createTextNode(' · '));
+        const a = el('a', 'hrsc-link hrsc-photo-link', s.name);
+        a.href = s.url(shown.photo);
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.referrerPolicy = 'no-referrer';
+        a.title = 'Opens ' + s.name + ' in a new tab and shares only this photo\u2019s link with it';
+        row.appendChild(a);
+      });
+      body.appendChild(row);
+      body.appendChild(el('div', 'hrsc-note',
+        'Only shared if you click. No match proves nothing (AI-generated faces match nothing); ' +
+        'the same face under a different name is worth a closer look.'));
+      box.appendChild(body);
+      panel.appendChild(box);
+    }
+
     panel.appendChild(el('p', 'hrsc-tip',
       'Before acting: verify the recruiter through the company’s own website, and never enter keys, codes, ' +
       'logins or ID documents on a page reached from a message.'));
@@ -629,6 +700,8 @@
       if (changes.settings) {
         const s = changes.settings.newValue;
         enabled = !(s && s.enabled === false);
+        photoSearch = !(s && s.photoSearch === false);
+        renderCorner();
         unitCache.clear();
         if (!enabled) teardownUI();
         scheduleScan();
@@ -658,6 +731,7 @@
 
   storageGet(['settings', 'dismissedThreads']).then(({ settings, dismissedThreads: d }) => {
     enabled = !(settings && settings.enabled === false);
+    photoSearch = !(settings && settings.photoSearch === false);
     dismissedThreads = cleanDismissed(d);
     scan(false);
   });

@@ -66,7 +66,14 @@
     <p class="small"><button class="linkish" id="preset">Use MetaMask eth-phishing-detect</button></p>
     <p id="listStatus" class="small muted"></p>
     <div class="row" style="margin-top:8px"><button id="refresh">Refresh now</button></div>
-    <p class="small muted">Only this public URL is fetched (GitHub raw/gist). Nothing about you or the pages you view leaves your browser.</p>
+    <p class="small muted">The extension itself only fetches this public URL (GitHub raw/gist). Nothing about you or the pages you view leaves your browser unless you click a photo-search link below.</p>
+  </section>
+
+  <section aria-labelledby="h-photo">
+    <h2 id="h-photo">Profile photos</h2>
+    <label class="toggle small"><input type="checkbox" id="photoSearch">
+      <span>Offer reverse image search (Google Lens / TinEye) in the panel</span></label>
+    <p class="small muted">Nothing is sent unless you click a link; then only that photo’s address goes to the service you picked.</p>
   </section>
 
   <section>

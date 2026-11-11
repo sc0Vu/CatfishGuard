@@ -14,7 +14,7 @@
 importScripts('analyzer.js');
 const A = self.HRScam;
 
-const DEFAULT_SETTINGS = Object.freeze({ enabled: true, blocklistUrl: '' });
+const DEFAULT_SETTINGS = Object.freeze({ enabled: true, blocklistUrl: '', photoSearch: true });
 const TTL_MS = 6 * 60 * 60 * 1000;
 const FAIL_BACKOFF_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 20000;
@@ -44,7 +44,11 @@ async function storageRemove(keys) {
 async function getSettings() {
   const { settings } = await storageGet('settings');
   const s = Object.assign({}, DEFAULT_SETTINGS, settings && typeof settings === 'object' ? settings : {});
-  return { enabled: s.enabled !== false, blocklistUrl: typeof s.blocklistUrl === 'string' ? s.blocklistUrl : '' };
+  return {
+    enabled: s.enabled !== false,
+    blocklistUrl: typeof s.blocklistUrl === 'string' ? s.blocklistUrl : '',
+    photoSearch: s.photoSearch !== false,
+  };
 }
 
 function validateBlocklistUrl(input) {
@@ -246,6 +250,7 @@ async function handle(msg) {
       const inS = (msg.settings && typeof msg.settings === 'object') ? msg.settings : {};
       const next = Object.assign({}, cur);
       if ('enabled' in inS) next.enabled = inS.enabled !== false;
+      if ('photoSearch' in inS) next.photoSearch = inS.photoSearch !== false;
       if ('blocklistUrl' in inS) {
         const v = validateBlocklistUrl(inS.blocklistUrl);
         if (!v.ok) return { ok: false, error: v.error };
