@@ -1,5 +1,67 @@
-/* CatfishGuard injected UI. Everything is scoped under .hrsc-root so nothing
-   leaks onto LinkedIn's DOM, and LinkedIn's styles are reset inside it. */
+/* CatfishGuard injected UI. Three roots — .hrsc-root (corner badge/panel),
+   .hrsc-banner-root (conversation banner) and .hrsc-listdot (list dot) — each
+   reset with `all: initial` so nothing leaks onto LinkedIn's DOM and LinkedIn's
+   styles don't leak in. Every rule below is scoped under one of them. */
+
+.hrsc-root, .hrsc-banner-root, .hrsc-listdot {
+  --hrsc-bg: #ffffff;
+  --hrsc-fg: #1d2226;
+  --hrsc-muted: #5e6a75;
+  --hrsc-border: #d9dee3;
+  --hrsc-chip: #eef1f4;
+  --hrsc-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
+  --hrsc-low: #6b7a86;
+  --hrsc-caution: #b26a00;
+  --hrsc-high: #c62828;
+  --hrsc-counter: #2e7d32;
+  --hrsc-link: #0a66c2;
+  --hrsc-caution-bg: #fff4e2;
+  --hrsc-caution-fg: #5c3a00;
+  --hrsc-high-bg: #fdecea;
+  --hrsc-high-fg: #8e1b1b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .hrsc-root, .hrsc-banner-root, .hrsc-listdot {
+    --hrsc-bg: #1f2428;
+    --hrsc-fg: #e8eaed;
+    --hrsc-muted: #a2acb5;
+    --hrsc-border: #3a4148;
+    --hrsc-chip: #2c3238;
+    --hrsc-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+    --hrsc-low: #9aa6b0;
+    --hrsc-caution: #f0a43a;
+    --hrsc-high: #ff6b6b;
+    --hrsc-counter: #6fcf74;
+    --hrsc-link: #70b5f9;
+    --hrsc-caution-bg: #3a2a10;
+    --hrsc-caution-fg: #ffd59a;
+    --hrsc-high-bg: #3d1717;
+    --hrsc-high-fg: #ffb4b4;
+  }
+}
+
+.hrsc-root *, .hrsc-root *::before, .hrsc-root *::after,
+.hrsc-banner-root *, .hrsc-banner-root *::before, .hrsc-banner-root *::after {
+  box-sizing: border-box;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.hrsc-root button, .hrsc-banner-root button {
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.hrsc-root button:focus-visible, .hrsc-banner-root button:focus-visible {
+  outline: 2px solid var(--hrsc-link);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------ corner badge */
 
 .hrsc-root {
   all: initial;
@@ -14,47 +76,6 @@
   max-width: min(380px, calc(100vw - 32px));
   font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   pointer-events: none; /* only the badge/panel take clicks; never blocks the page */
-
-  --hrsc-bg: #ffffff;
-  --hrsc-fg: #1d2226;
-  --hrsc-muted: #5e6a75;
-  --hrsc-border: #d9dee3;
-  --hrsc-chip: #eef1f4;
-  --hrsc-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
-  --hrsc-low: #6b7a86;
-  --hrsc-caution: #b26a00;
-  --hrsc-high: #c62828;
-  --hrsc-counter: #2e7d32;
-}
-
-@media (prefers-color-scheme: dark) {
-  .hrsc-root {
-    --hrsc-bg: #1f2428;
-    --hrsc-fg: #e8eaed;
-    --hrsc-muted: #a2acb5;
-    --hrsc-border: #3a4148;
-    --hrsc-chip: #2c3238;
-    --hrsc-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
-    --hrsc-low: #9aa6b0;
-    --hrsc-caution: #f0a43a;
-    --hrsc-high: #ff6b6b;
-    --hrsc-counter: #6fcf74;
-  }
-}
-
-.hrsc-root *, .hrsc-root *::before, .hrsc-root *::after {
-  box-sizing: border-box;
-  font: inherit;
-  letter-spacing: normal;
-  text-transform: none;
-}
-
-.hrsc-root button {
-  margin: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  cursor: pointer;
 }
 
 .hrsc-badge {
@@ -71,10 +92,6 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.hrsc-badge:focus-visible, .hrsc-root button:focus-visible {
-  outline: 2px solid #0a66c2;
-  outline-offset: 2px;
-}
 
 .hrsc-dot {
   width: 10px;
@@ -85,15 +102,12 @@
 }
 
 /* proportional to band: quiet on low, assertive (but non-blocking) on high */
-.hrsc-band-low { opacity: 0.75; font-weight: 500; padding: 4px 10px !important; font-size: 12px; }
-.hrsc-band-low:hover { opacity: 1; }
-.hrsc-band-caution .hrsc-dot { background: var(--hrsc-caution); }
-.hrsc-band-caution { border-color: var(--hrsc-caution) !important; }
-.hrsc-band-high .hrsc-dot { background: var(--hrsc-high); }
-.hrsc-band-high {
-  border: 2px solid var(--hrsc-high) !important;
-  color: var(--hrsc-high) !important;
-}
+.hrsc-badge.hrsc-band-low { opacity: 0.75; font-weight: 500; padding: 4px 10px !important; font-size: 12px; }
+.hrsc-badge.hrsc-band-low:hover { opacity: 1; }
+.hrsc-badge.hrsc-band-caution { border-color: var(--hrsc-caution) !important; }
+.hrsc-badge.hrsc-band-caution .hrsc-dot { background: var(--hrsc-caution); }
+.hrsc-badge.hrsc-band-high { border: 2px solid var(--hrsc-high) !important; color: var(--hrsc-high) !important; }
+.hrsc-badge.hrsc-band-high .hrsc-dot { background: var(--hrsc-high); }
 
 .hrsc-panel {
   pointer-events: auto;
@@ -112,7 +126,8 @@
 .hrsc-title { font-weight: 700; font-size: 14px; }
 .hrsc-x { font-size: 18px !important; line-height: 1; padding: 2px 6px !important; color: var(--hrsc-muted) !important; }
 
-.hrsc-sub, .hrsc-tip, .hrsc-empty { margin: 6px 0 10px; color: var(--hrsc-muted); }
+.hrsc-sub, .hrsc-tip, .hrsc-empty, .hrsc-scope { margin: 6px 0 10px; color: var(--hrsc-muted); }
+.hrsc-scope { margin-top: -4px; font-size: 12px; font-style: italic; }
 .hrsc-tip { margin: 10px 0 4px; font-size: 12px; }
 
 .hrsc-reasons { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -134,7 +149,75 @@
 .hrsc-note { margin-top: 3px; font-size: 12px; color: var(--hrsc-muted); }
 
 .hrsc-foot { display: flex; justify-content: flex-end; margin-top: 6px; }
-.hrsc-link { color: #0a66c2 !important; font-size: 12px; text-decoration: underline; padding: 2px 0 !important; }
+.hrsc-link { color: var(--hrsc-link) !important; font-size: 12px; text-decoration: underline; padding: 2px 0 !important; }
+
+/* ----------------------------------------------------- conversation banner */
+
+.hrsc-banner-root {
+  all: initial;
+  display: block;
+  box-sizing: border-box;
+  padding: 6px 8px 2px;
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--hrsc-fg);
+}
+
+.hrsc-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hrsc-caution);
+  background: var(--hrsc-caution-bg);
+  color: var(--hrsc-caution-fg);
+}
+.hrsc-banner-high {
+  border-width: 2px;
+  border-color: var(--hrsc-high);
+  background: var(--hrsc-high-bg);
+  color: var(--hrsc-high-fg);
+}
+
+.hrsc-banner-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--hrsc-caution); }
+.hrsc-banner-high .hrsc-banner-dot { background: var(--hrsc-high); }
+
+/* wrap (max 2 lines) rather than truncate — in a narrow overlay the headline must stay readable */
+.hrsc-banner-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.hrsc-banner-text strong { font-weight: 700; }
+.hrsc-banner-why { opacity: 0.85; }
+
+.hrsc-banner-btn {
+  flex: none;
+  padding: 2px 8px !important;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.hrsc-banner-btn:hover { background: rgba(127, 127, 127, 0.15) !important; }
+.hrsc-banner-x { text-decoration: none; opacity: 0.8; }
+
+/* ------------------------------------------------------ conversation dots */
+
+.hrsc-listdot {
+  all: initial;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: var(--hrsc-caution);
+}
+.hrsc-listdot-high { background: var(--hrsc-high); box-shadow: 0 0 0 2px var(--hrsc-high-bg); }
 
 @media (prefers-reduced-motion: no-preference) {
   .hrsc-badge { transition: opacity 0.15s ease; }

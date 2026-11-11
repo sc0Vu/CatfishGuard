@@ -57,6 +57,13 @@ function showResult(res) {
   head.appendChild(el('span', 'band band-' + r.band, BAND_TEXT[r.band]));
   head.appendChild(document.createTextNode(' · score ' + r.score + '/100'));
   box.appendChild(head);
+  const SCOPE = {
+    inbound: 'Scored messages from the other person only.',
+    all: 'Scored the whole conversation (senders could not be told apart).',
+    page: 'Scored the main content of this page.',
+  };
+  if (SCOPE[res.scope]) box.appendChild(el('p', 'small muted', SCOPE[res.scope] +
+    (res.units > 1 ? ' Showing the highest of ' + res.units + ' open items.' : '')));
   const fired = r.reasons.filter((x) => x.points !== 0 || x.category === 'counter');
   if (!fired.length) {
     box.appendChild(el('p', 'small muted', 'No risk signals matched.'));
