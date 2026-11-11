@@ -1,6 +1,6 @@
 # CatfishGuard privacy policy
 
-_Last updated: 2026-11-11 (banner dismissal storage)_
+_Last updated: 2026-11-11 (reverse image search links)_
 
 CatfishGuard is a browser extension with a single purpose: flagging possible
 recruiter/job scams and phishing on LinkedIn by showing you which risk signals
@@ -22,9 +22,17 @@ appear on the page you are viewing.
   The request carries no page content, no cookies and no referrer. Like any web
   request it unavoidably exposes standard request metadata (such as your IP
   address) to that host (GitHub).
+- **Reverse image search, only when you click it.** The panel can offer
+  "Google Lens" and "TinEye" links for the other person's LinkedIn profile
+  photo. Nothing is sent unless you click one. If you do, your browser opens
+  that service in a new tab with **only the photo's public LinkedIn image
+  address**, without a referrer, so the service does not learn which page you
+  were on. That service's own privacy policy then applies. Only images hosted
+  by LinkedIn (`licdn.com`) are ever offered. You can hide these links in the
+  popup ("Profile photos").
 
 ## Storage
-- Your settings (on/off, blocklist URL) and the downloaded blocklist are kept in
+- Your settings (on/off, blocklist URL, photo-search links on/off) and the downloaded blocklist are kept in
   `chrome.storage.local`, **on your device**. They are not synced and never
   transmitted.
 - When you dismiss a conversation's banner, a **short hash of that

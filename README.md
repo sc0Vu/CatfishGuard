@@ -12,6 +12,13 @@ shows what it found, scaled to the risk level:
 - **a corner badge** that's always available. Click it, or the banner's
   "Why?", to see every signal that fired.
 
+The panel can also offer a **reverse image search** of the other person's
+profile photo (Google Lens / TinEye). These are plain links: nothing is sent
+unless you click, and then only the photo's LinkedIn image address goes to the
+service you picked, with no referrer. No match proves nothing, because
+AI-generated faces match nothing. The same face under a different name is
+worth a closer look. You can turn it off in the popup.
+
 The result is a prompt to look closer, never a verdict about a person.
 
 ## Install (unpacked)

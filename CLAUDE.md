@@ -167,8 +167,14 @@ settings, and roadmap #1:
    Suffix List so `google.com.evil.ru` resolves to `evil.ru`), lookalike /
    typosquat / homograph against a bundled impersonated-brand list, URL risk
    heuristics (IP, punycode, shorteners, cheap TLDs, `@`), free-email-as-corporate.
-3. **Reverse-image-search button** on a profile photo (one-click to Google
-   Images / TinEye). Caveat: AI-generated faces defeat it.
+3. ~~**Reverse-image-search button**~~ — built: Google Lens / TinEye *links* in
+   the corner panel (not injected into LinkedIn's layout) for the other
+   person's photo (`img.msg-s-event-listitem__profile-picture` inside an
+   `--other` event; largest licdn profile photo on `/in/` pages). Only
+   `*.licdn.com` profile-photo URLs are offered; `rel=noopener noreferrer` +
+   `referrerPolicy=no-referrer`; nothing sent unless clicked; `photoSearch`
+   setting (default on) hides it; disclosed in PRIVACY.md. No new permission.
+   Caveat: AI-generated faces defeat it — the copy says so.
 4. **Page-check / phishing module — DEFERRED, needs care.** Detect a fake
    meeting/interview landing page: brand-claim vs actual domain + credential/PII
    form + URL heuristics, optionally an opt-in reputation feed (community lists or
@@ -203,9 +209,12 @@ selling point — keep them true):
 - **What it accesses:** the visible text and links of LinkedIn pages you view, to
   compute a risk score **locally in the browser**.
 - **What leaves the device:** nothing about you or the pages you view. The only
-  outbound request is a GET to the **public blocklist URL** you configure (GitHub
-  raw); it carries no page content and no personal data (only the unavoidable
-  request metadata any fetch has, e.g. your IP, seen by that host).
+  outbound request the extension makes is a GET to the **public blocklist URL**
+  you configure (GitHub raw); it carries no page content and no personal data
+  (only the unavoidable request metadata any fetch has, e.g. your IP, seen by
+  that host). The reverse-image-search links send a LinkedIn photo URL to Google
+  Lens / TinEye **only when the user clicks one** (user-initiated navigation,
+  no referrer) — keep that disclosed.
 - **Storage:** settings and the blocklist cache live in `chrome.storage.local`,
   on-device, not synced, never transmitted.
 - **No** analytics, tracking, ads, selling or sharing of data. Single purpose:
