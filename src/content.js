@@ -80,6 +80,7 @@
 
   let enabled = true;
   let photoSearch = true;
+  let overrides = null; // the user's local rule tuning (validated inside the analyzer)
   let alive = true;
   let scanning = false;
   let rescanQueued = false;
@@ -326,7 +327,7 @@
       result = cached.result;
     } else {
       const hits = await blocklistHits(A.extractIndicators(text, links));
-      result = A.analyze(text, links, { blocklistHits: hits });
+      result = A.analyze(text, links, { blocklistHits: hits, overrides });
       if (unitCache.size > 50) unitCache.clear();
       unitCache.set(u.uid, { key, result });
     }
@@ -493,7 +494,7 @@
         const t = snippetText(snip);
         // "You: …" previews are the user's own words — never score them.
         if (t && !/^you\s*:/i.test(t)) {
-          const r = A.analyze(t, []);
+          const r = A.analyze(t, [], { overrides });
           band = r.band;
           why = 'message preview: ' + summary(r);
         }
@@ -571,6 +572,7 @@
       'Score ' + r.score + '/100. These are risk signals and a prompt to look closer, not a verdict about this person.'));
     panel.appendChild(el('p', 'hrsc-scope', SCOPE_TEXT[shown.scope] +
       (scanned.length > 1 ? ' Showing the ' + (shown === w ? 'highest-scoring' : 'selected') + ' of ' + scanned.length + ' open items.' : '')));
+    if (r.custom) panel.appendChild(el('p', 'hrsc-scope', 'Custom rules active (from your CatfishGuard settings).'));
 
     if (!r.reasons.length) {
       panel.appendChild(el('p', 'hrsc-empty', 'No risk signals matched.'));
@@ -707,6 +709,12 @@
         scheduleScan();
       }
       if (changes.blocklistMeta) { hitCache.clear(); unitCache.clear(); scheduleScan(); }
+      if (changes.overrides) {
+        const v = changes.overrides.newValue;
+        overrides = v && typeof v === 'object' ? v : null;
+        unitCache.clear();
+        scheduleScan();
+      }
       if (changes.dismissedThreads) { dismissedThreads = cleanDismissed(changes.dismissedThreads.newValue); renderBanners(); }
     });
   } catch (_) { /* context gone */ }
@@ -729,7 +737,8 @@
     }
   }, NAV_POLL_MS);
 
-  storageGet(['settings', 'dismissedThreads']).then(({ settings, dismissedThreads: d }) => {
+  storageGet(['settings', 'dismissedThreads', 'overrides']).then(({ settings, dismissedThreads: d, overrides: ov }) => {
+    overrides = ov && typeof ov === 'object' ? ov : null;
     enabled = !(settings && settings.enabled === false);
     photoSearch = !(settings && settings.photoSearch === false);
     dismissedThreads = cleanDismissed(d);

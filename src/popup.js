@@ -64,6 +64,7 @@ function showResult(res) {
   };
   if (SCOPE[res.scope]) box.appendChild(el('p', 'small muted', SCOPE[res.scope] +
     (res.units > 1 ? ' Showing the highest of ' + res.units + ' open items.' : '')));
+  if (r.custom) box.appendChild(el('p', 'small muted', 'Custom rules active.'));
   const fired = r.reasons.filter((x) => x.points !== 0 || x.category === 'counter');
   if (!fired.length) {
     box.appendChild(el('p', 'small muted', 'No risk signals matched.'));
@@ -154,6 +155,9 @@ $('enabled').addEventListener('change', async () => {
 });
 $('photoSearch').addEventListener('change', () => {
   sendBg({ type: 'cfg:saveSettings', settings: { photoSearch: $('photoSearch').checked } });
+});
+$('customize').addEventListener('click', () => {
+  try { chrome.runtime.openOptionsPage(); } catch (_) { /* ignore */ }
 });
 $('rescan').addEventListener('click', async () => {
   $('result').textContent = 'Scanning…';

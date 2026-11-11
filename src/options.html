@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CatfishGuard rules</title>
+  <style>
+    :root {
+      --bg: #f4f2ee; --card: #ffffff; --fg: #1d2226; --muted: #5e6a75; --border: #d9dee3; --field: #f6f8fa;
+      --accent: #0a66c2; --ok: #2e7d32; --warn: #b26a00; --err: #c62828;
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #16191c; --card: #1f2428; --fg: #e8eaed; --muted: #a2acb5; --border: #3a4148; --field: #2a3036;
+        --accent: #70b5f9; --ok: #6fcf74; --warn: #f0a43a; --err: #ff6b6b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+    header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    header img { width: 28px; height: 28px; }
+    h1 { font-size: 22px; margin: 0; }
+    h2 { font-size: 16px; margin: 0 0 4px; }
+    .lead { color: var(--muted); margin: 0 0 16px; }
+    section { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+    .hint { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    th { font-size: 12px; color: var(--muted); font-weight: 600; }
+    td.num, th.num { width: 84px; }
+    td small { color: var(--muted); display: block; }
+    input[type=number] { width: 72px; }
+    input[type=number], textarea { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--field); color: var(--fg); font: inherit; }
+    textarea { width: 100%; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+    .terms { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+    .terms label { font-size: 13px; font-weight: 600; display: block; margin-bottom: 2px; }
+    .bar { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; }
+    button { padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--field);
+      color: var(--fg); font: inherit; cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .spacer { flex: 1; }
+    #status { font-size: 13px; }
+    #status.ok { color: var(--ok); } #status.err { color: var(--err); }
+    #warnings { margin: 8px 0 0; padding-left: 18px; color: var(--warn); font-size: 13px; }
+    .preview-out { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+    .preview-out div { background: var(--field); border-radius: 8px; padding: 10px; font-size: 13px; }
+    .preview-out b { font-size: 18px; }
+    .preview-out ul { margin: 6px 0 0; padding-left: 16px; }
+    .band-high { color: var(--err); } .band-caution { color: var(--warn); } .band-low { color: var(--muted); }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    @media (max-width: 600px) { .preview-out { grid-template-columns: 1fr; } td small { display: none; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="../icons/icon48.png" alt="">
+    <h1>CatfishGuard rules</h1>
+  </header>
+  <p class="lead">Tune scoring for <strong>this browser only</strong>. Your changes stay on this device:
+    they are never uploaded, synced or shared. Phrases match as plain text, never as patterns.
+    Credential asks and blocklist hits always count as high risk, whatever you set here.</p>
+
+  <section aria-labelledby="h-cat">
+    <h2 id="h-cat">Categories</h2>
+    <p class="hint">Leave a box empty to keep the built-in value. "Per phrase" is added once for each distinct phrase that matches; "max" caps the category.</p>
+    <table>
+      <thead><tr><th>Category</th><th class="num">Built-in</th><th class="num">Per phrase</th><th class="num">Max</th><th>Off</th></tr></thead>
+      <tbody id="cats"></tbody>
+    </table>
+  </section>
+
+  <section aria-labelledby="h-terms">
+    <h2 id="h-terms">Your phrases</h2>
+    <p class="hint">One phrase per line, 2–80 characters, any language. Added to the category you put them in.</p>
+    <div class="terms" id="terms"></div>
+  </section>
+
+  <section aria-labelledby="h-mute">
+    <h2 id="h-mute">Mute built-in phrases</h2>
+    <p class="hint">One per line, exactly as built in (for example <code>blockchain</code>). Credential phrases can't be muted.</p>
+    <textarea id="mute" rows="3" aria-labelledby="h-mute"></textarea>
+  </section>
+
+  <section aria-labelledby="h-brands">
+    <h2 id="h-brands">Your brands</h2>
+    <p class="hint">One per line: <code>Name = domain, domain</code>, for example <code>peaq = peaq.xyz</code>. Enables the
+      lookalike-domain check and "claims to recruit for Name, but no link goes to Name's domain".</p>
+    <textarea id="brands" rows="3" aria-labelledby="h-brands"></textarea>
+  </section>
+
+  <section aria-labelledby="h-trusted">
+    <h2 id="h-trusted">Trusted domains</h2>
+    <p class="hint">One per line. Links to these never add link or impersonation signals (for example your employer's careers site).</p>
+    <textarea id="trusted" rows="3" aria-labelledby="h-trusted"></textarea>
+  </section>
+
+  <section aria-labelledby="h-preview">
+    <h2 id="h-preview">Preview</h2>
+    <p class="hint">Paste a message to compare the built-in score with your unsaved settings. Nothing leaves this page.</p>
+    <textarea id="sample" rows="4" aria-labelledby="h-preview" placeholder="Paste a recruiter message…"></textarea>
+    <div class="preview-out" aria-live="polite">
+      <div><span class="visually-hidden">Built-in</span>Built-in: <b id="pv-stock">–</b><ul id="pv-stock-r"></ul></div>
+      <div><span class="visually-hidden">Yours</span>Your settings: <b id="pv-custom">–</b><ul id="pv-custom-r"></ul></div>
+    </div>
+  </section>
+
+  <div class="bar">
+    <button id="save" class="primary">Save</button>
+    <button id="export">Export</button>
+    <button id="import">Import…</button>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <button id="reset">Reset to defaults</button>
+    <span class="spacer"></span>
+    <span id="status" role="status"></span>
+  </div>
+  <ul id="warnings"></ul>
+</main>
+<script src="psl.js"></script>
+<script src="analyzer.js"></script>
+<script src="options.js"></script>
+</body>
+</html>
