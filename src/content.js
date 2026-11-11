@@ -41,7 +41,10 @@
     event: '.msg-s-event-listitem',
     inboundClass: 'msg-s-event-listitem--other',
     overlay: '.msg-overlay-conversation-bubble',
-    overlayMinClass: 'msg-overlay-conversation-bubble--is-minimized',
+    overlayMinClass: 'msg-overlay-conversation-bubble--is-minimized', // unverified
+    // Verified live (2026-11): the open chat popup's header button carries
+    // aria-expanded="true" while expanded — a sturdier signal than the class.
+    overlayExpandBtn: '.msg-overlay-conversation-bubble__expand-btn',
     // /messaging/ page rows are <li>; the bottom-corner messaging-list popup
     // (.msg-overlay-list-bubble) uses div rows with a "--v2" class (live, 2026-11).
     convoItem: '.msg-conversation-listitem, .msg-conversations-container__convo-item, .msg-overlay-list-bubble__convo-item--v2',
@@ -198,14 +201,23 @@
       page(firstOf(SEL.jobRoots));
     }
     document.querySelectorAll(SEL.overlay).forEach((b) => {
-      if (b.classList.contains(SEL.overlayMinClass)) return;
-      if (!overlayIds.has(b)) overlayIds.set(b, ++overlaySeq);
+      if (overlayMinimized(b)) return;
+      // Only score a popup that shows a conversation; without a message list
+      // all we'd read is header chrome ("Minimize your conversation with …").
       const list = b.querySelector(SEL.threadList);
-      out.push({ uid: 'overlay:' + overlayIds.get(b), kind: 'overlay', root: list || b, host: list && bannerAnchor(list), bubble: b });
+      if (!list) return;
+      if (!overlayIds.has(b)) overlayIds.set(b, ++overlaySeq);
+      out.push({ uid: 'overlay:' + overlayIds.get(b), kind: 'overlay', root: list, host: bannerAnchor(list), bubble: b });
     });
     // a unit nested inside another is already covered by the outer one
     const units = out.filter((u, i) => !out.some((o, j) => j !== i && o.root !== u.root && o.root.contains(u.root)));
     return { ctx, units };
+  }
+
+  function overlayMinimized(b) {
+    if (b.classList.contains(SEL.overlayMinClass)) return true;
+    const btn = b.querySelector(SEL.overlayExpandBtn);
+    return !!btn && btn.getAttribute('aria-expanded') === 'false';
   }
 
   function bannerAnchor(list) {
@@ -576,6 +588,10 @@
         // LinkedIn churns classes constantly (hover, focus…); only react when a
         // class we key on flips — e.g. an overlay is (un)minimised.
         if (!t) continue;
+        if (m.attributeName === 'aria-expanded') {
+          if (t.matches(SEL.overlayExpandBtn)) { scheduleScan(); return; }
+          continue;
+        }
         const had = String(m.oldValue || '').split(/\s+/);
         const watched = WATCHED_CLASSES.some((c) => had.includes(c) !== t.classList.contains(c));
         if (!watched) continue;
@@ -625,7 +641,7 @@
   observer = new MutationObserver(onMutations);
   observer.observe(document.documentElement, {
     childList: true, subtree: true, characterData: true,
-    attributes: true, attributeFilter: ['class'], attributeOldValue: true,
+    attributes: true, attributeFilter: ['class', 'aria-expanded'], attributeOldValue: true,
   });
 
   // LinkedIn is an SPA: catch route changes the observer might not.

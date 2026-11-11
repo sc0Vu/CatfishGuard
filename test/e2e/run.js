@@ -375,19 +375,47 @@ async function main() {
         .map((r) => { const x = r.querySelector('.hrsc-listdot'); return x ? x.className.replace('hrsc-listdot ', '') : '-'; }).join(',');
         return d.includes('hrsc') ? d : null; })()`);
       assert.equal(popupDots, 'hrsc-listdot-caution,-,-');
+      // Open chat popup, inner structure mirrored from live LinkedIn (2026-11).
       await feed.evaluate(`(() => {
         const b = document.createElement('div');
         b.className = 'msg-overlay-conversation-bubble';
         b.style.cssText = 'position:fixed;right:420px;bottom:0;width:340px;background:#fff;border:1px solid #ccc';
-        b.innerHTML = '<header>Sam (fixture)</header><div class="msg-s-message-list"><ul>' +
-          '<li class="msg-s-event-listitem msg-s-event-listitem--other">Quick question: are you open to a role? ' +
-          'Add me on WhatsApp, registration fee is refundable.</li>' +
-          '<li class="msg-s-event-listitem">Sure, but is there a fee? I use telegram too.</li></ul></div>';
+        b.innerHTML = '<div class="relative display-flex flex-column flex-grow-1">' +
+          '<header class="msg-overlay-conversation-bubble-header"><h2 class="msg-overlay-bubble-header__title"><a href="/in/ACoAAFixtureSam/">Sam (fixture)</a></h2>' +
+          '<button aria-expanded="true" class="msg-overlay-bubble-header__control msg-overlay-conversation-bubble__expand-btn">' +
+          '<span class="artdeco-button__text">Minimize your conversation with Me and Sam — act now</span></button></header>' +
+          '<div class="msg-overlay-conversation-bubble__content-wrapper relative display-flex flex-column">' +
+          '<div class="msg-s-message-list-container msg-s-message-list-container--column-reversed" style="display:flex;flex-direction:column-reverse">' +
+          '<div class="msg-s-message-list"><ul class="msg-s-message-list-content">' +
+          '<li class="msg-s-message-list__event"><div class="msg-s-event-listitem msg-s-event-listitem--other">' +
+          '<div class="msg-s-event-listitem__actions-container"><button title="Reply to this message"><span class="artdeco-button__text">Reply urgently</span></button></div>' +
+          '<p class="msg-s-event-listitem__body">Quick question: are you open to a role? Add me on WhatsApp, registration fee is refundable.</p></div></li>' +
+          '<li class="msg-s-message-list__event"><div class="msg-s-event-listitem"><p class="msg-s-event-listitem__body">Sure, but is there a fee? I use telegram too.</p></div></li>' +
+          '</ul></div></div>' +
+          '<form class="msg-form"><div class="msg-form__contenteditable" contenteditable="true" role="textbox"><p>my draft: seed phrase?</p></div></form>' +
+          '</div></div>';
         document.body.appendChild(b);
       })()`);
       const t = await feed.waitFor(badge);
       // inbound only: offplatform (whatsapp, add me on) 30 + money (registration fee) 15 = 45 caution
       assert.equal(scoreOf(t), 45, t);
+      // live signal: minimise button flips aria-expanded -> popup no longer scored; flip back -> scored again
+      await feed.evaluate(`document.querySelector('.msg-overlay-conversation-bubble__expand-btn').setAttribute('aria-expanded', 'false')`);
+      await feed.waitFor(`!document.querySelector('.hrsc-root')`);
+      await feed.evaluate(`document.querySelector('.msg-overlay-conversation-bubble__expand-btn').setAttribute('aria-expanded', 'true')`);
+      await feed.waitFor(badge);
+      // a popup whose message list is gone (collapsed render) is not scored from header chrome
+      const extra = await feed.evaluate(`(() => {
+        const b = document.createElement('div');
+        b.className = 'msg-overlay-conversation-bubble';
+        b.innerHTML = '<header class="msg-overlay-conversation-bubble-header"><h2>Other (fixture)</h2></header>';
+        document.body.appendChild(b);
+        return true;
+      })()`);
+      assert.ok(extra);
+      await sleep(1500);
+      const units = await feed.evaluate(`(() => { const p = document.querySelectorAll('.hrsc-banner-root'); return p.length; })()`);
+      assert.equal(units, 1, 'only the popup with a message list gets a banner');
       // minimise -> its banner goes and nothing is scored; un-minimise (pure class flip) -> back
       await feed.evaluate(`document.querySelector('.msg-overlay-conversation-bubble').classList.add('msg-overlay-conversation-bubble--is-minimized')`);
       await feed.waitFor(`!document.querySelector('.hrsc-root')`);
