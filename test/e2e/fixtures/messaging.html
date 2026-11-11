@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Messaging | LinkedIn (fixture)</title>
+<style>body{font-family:sans-serif;margin:0;background:#f4f2ee}main{max-width:760px;margin:24px auto;background:#fff;padding:16px;border-radius:8px}
+.msg-s-event-listitem{list-style:none;padding:8px 0;border-bottom:1px solid #eee}.msg-form{margin-top:16px}
+[contenteditable]{border:1px solid #ccc;padding:8px;min-height:40px}</style></head>
+<body>
+<!-- Minimal stand-in for LinkedIn's messaging DOM; class names mirror the real ones the content script targets. -->
+<main>
+  <h2 class="msg-entity-lockup__entity-title">Jane (fixture)</h2>
+  <div class="msg-s-message-list">
+    <ul>
+      <li class="msg-s-event-listitem"><div class="msg-s-event-listitem__body">
+        Hi! We came across your profile. We have an urgent remote web3 role paying $900 per day,
+        no experience needed. Message me on Telegram: t.me/hr_jane_web3 .
+        Details: <a href="https://www.linkedin.com/redir/redirect?url=https%3A%2F%2Fcareers-acme.xyz%2Fapply">careers-acme.xyz/apply</a>
+      </div></li>
+      <li class="msg-s-event-listitem"><div class="msg-s-event-listitem__body">Sounds interesting, which company is this?</div></li>
+    </ul>
+  </div>
+  <form class="msg-form">
+    <div contenteditable="true">my draft: should I share my seed phrase and private key?</div>
+  </form>
+</main>
+</body></html>
