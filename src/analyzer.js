@@ -43,6 +43,10 @@
         'bank login', 'online banking login', 'bank account details', 'bank details',
         'routing number', 'card number', 'cvv', 'verification code',
         'one-time code', 'otp code', '2fa code',
+        // zh (simplified / traditional)
+        '助记词', '助記詞', '私钥', '私鑰', '连接钱包', '連接錢包', '连接你的钱包', '連接你的錢包',
+        '护照照片', '護照照片', '护照复印件', '護照影本', '验证码', '驗證碼', '网银密码', '網銀密碼',
+        '银行卡号', '銀行卡號',
       ],
     },
     offplatform: {
@@ -54,6 +58,7 @@
         'contact me on', 'add me on', 'message me on', 'text me on', 'text me at',
         'reach me on', 'move this conversation', 'skype id',
         'wechat', 'kakaotalk', 'line app',
+        '微信', '加我微信', '电报', '電報', '飞机号', '飛機號',
       ],
     },
     money: {
@@ -69,6 +74,8 @@
         'crypto atm', 'usdt', 'usdc', 'trc20', 'erc20', 'recharge your account',
         'top up your account', 'top-up', 'commission per task', 'complete tasks',
         'task-based', 'optimize orders', 'order grabbing', 'prepayment',
+        '押金', '保证金', '保證金', '培训费', '培訓費', '手续费', '手續費', '入职费', '入職費',
+        '充值', '刷单', '刷單', '垫付', '墊付', '返佣', '泰达币', '泰達幣',
       ],
     },
     crypto: {
@@ -82,6 +89,8 @@
         'real-world assets', 'tokenomics', 'airdrop', 'staking', 'liquidity pool',
         'yield farming', 'smart contract', 'dapp', 'metaverse', 'memecoin',
         'meme coin', 'presale', 'token sale', 'ico', 'dao',
+        '区块链', '區塊鏈', '加密货币', '加密貨幣', '去中心化', '代币', '代幣', '智能合约', '智能合約',
+        '空投', '质押', '質押', '链上', '鏈上', '数字资产', '數字資產', '币圈', '幣圈',
       ],
     },
     toogood: {
@@ -95,6 +104,8 @@
         'only 1-2 hours a day', '1-2 hours a day', '1 hour a day', 'one hour a day',
         "you've been selected", 'you have been selected', 'you have been shortlisted',
         'work from your phone', 'daily payout', 'paid daily', 'weekly payout',
+        '无需经验', '無需經驗', '无需面试', '無需面試', '日结', '日結', '轻松赚钱', '輕鬆賺錢',
+        '躺赚', '躺賺', '稳赚', '穩賺',
       ],
     },
     pressure: {
@@ -107,6 +118,8 @@
         'today only', 'offer expires', 'respond immediately', 'reply immediately',
         'keep this confidential', 'keep it confidential', "don't tell", 'do not tell',
         'do not share this', "don't share this", 'between us',
+        '尽快', '盡快', '紧急', '緊急', '立即回复', '立即回覆', '保密', '不要告诉', '不要告訴',
+        '会议中等你', '會議中等你', '正在等你',
       ],
     },
     counter: {
@@ -118,6 +131,7 @@
         'ashbyhq.com', 'icims.com', 'workable.com', 'jobvite.com', 'bamboohr.com',
         'interview process', 'technical interview', 'hiring manager', 'job id',
         'apply through our careers page', 'our careers page', 'background check',
+        '面试流程', '面試流程', '招聘官网', '招聘官網',
       ],
     },
   };
@@ -151,16 +165,23 @@
     return s.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'); // no '-': invalid escape under the u flag
   }
 
-  const WORD_CHAR = /[\p{L}\p{N}_]/u;
+  // Scripts written without spaces between words: a CJK/Thai character is never
+  // a word boundary *barrier*. Otherwise "区块链" could never match inside
+  // "全新的区块链项目", and "telegram" could never match in "加我telegram".
+  const NO_SPACE = '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Thai}';
+  const BOUNDARY_CHAR = '(?:(?![' + NO_SPACE + '])[\\p{L}\\p{N}_])';
+  const NEEDS_BOUNDARY = new RegExp('^' + BOUNDARY_CHAR + '$', 'u');
   const termRegexCache = new Map();
 
   /** Build a regex that matches `term` literally, with word boundaries only on
-   *  the sides where the term itself starts/ends with a word character. */
+   *  the sides where the term itself starts/ends with a space-delimited word
+   *  character. */
   function termRegex(term) {
     let re = termRegexCache.get(term);
     if (!re) {
-      const pre = WORD_CHAR.test(term[0]) ? '(?<![\\p{L}\\p{N}_])' : '';
-      const post = WORD_CHAR.test(term[term.length - 1]) ? '(?![\\p{L}\\p{N}_])' : '';
+      const chars = Array.from(term);
+      const pre = NEEDS_BOUNDARY.test(chars[0]) ? '(?<!' + BOUNDARY_CHAR + ')' : '';
+      const post = NEEDS_BOUNDARY.test(chars[chars.length - 1]) ? '(?!' + BOUNDARY_CHAR + ')' : '';
       re = new RegExp(pre + escapeRegex(term) + post, 'gu');
       termRegexCache.set(term, re);
     }

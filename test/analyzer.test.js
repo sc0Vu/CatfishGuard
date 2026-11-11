@@ -126,6 +126,34 @@ test('word boundaries: no matches inside other words', () => {
   assert.equal(A.analyze('the daointerface', []).score, 0);
 });
 
+test('CJK: terms match inside unspaced text; Latin terms still need boundaries', () => {
+  assert.equal(A.countTerm(A.normalizeText('负责一个全新的区块链基础设施项目'), '区块链'), 1);
+  assert.equal(A.countTerm(A.normalizeText('加我telegram聊'), 'telegram'), 1);
+  assert.equal(A.countTerm(A.normalizeText('加我Telegram'), 'telegram'), 1);
+  assert.equal(A.countTerm('telegrams', 'telegram'), 0);
+  assert.equal(A.countTerm('xtelegram', 'telegram'), 0);
+  assert.equal(A.analyze('區塊鏈', []).score, 5); // traditional form
+  // offplatform 加我微信 15 (the 微信 inside it is consumed by the longer term) + money 押金 15 = 30
+  assert.equal(A.analyze('请加我微信，先交押金', []).score, 30);
+});
+
+test('real-world zh recruiter thread (anonymised, inbound only) scores low: keywords alone miss it', () => {
+  // Inbound messages from a live thread (names/company/links replaced). Hand-derived:
+  // crypto 区块链 5 + pressure 会议中等你 8 = 13 -> low. This is the documented gap:
+  // the pattern (GitHub-sourced cold outreach, web3 role, free scheduling link,
+  // "waiting for you in the meeting") isn't keyword-shaped.
+  const inbound = '您好， https://linkedin.com/in/me-fixture 我关注了您的 GitHub 账号，也看到了您在一个开源项目中的贡献，' +
+    '非常令人印象深刻。我是 nexachain 的技术招聘负责人，我们目前正在组建团队，负责一个全新的区块链基础设施项目。' +
+    '我们正在寻找像您这样具备相关经验的人才。该职位支持远程办公，提供全职或兼职机会。您看本周是否方便进行一次简短的沟通，互相了解一下？ ' +
+    '感谢您的关注。我想为您安排一场与我们工程负责人的面试。 https://calendly.com/lead-nexachain/30min 预约好时间后，请告知我。 ' +
+    '嗨， Lead 正在会议中等你。 你好 我知道你很忙。 能否请你安排一个对你方便的时间，我们开个会？';
+  const r = A.analyze(inbound, ['https://calendly.com/lead-nexachain/30min', 'https://linkedin.com/in/me-fixture']);
+  assert.equal(cat(r, 'crypto').points, 5);
+  assert.equal(cat(r, 'pressure').points, 8);
+  assert.equal(r.score, 13);
+  assert.equal(r.band, 'low');
+});
+
 test('terms are literal: regex metacharacters are escaped', () => {
   assert.equal(A.countTerm('tame/x', 't.me/'), 0);
   assert.equal(A.countTerm('see t.me/x', 't.me/'), 1);
