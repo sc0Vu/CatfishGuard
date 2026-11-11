@@ -44,7 +44,11 @@
     overlayMinClass: 'msg-overlay-conversation-bubble--is-minimized',
     convoItem: '.msg-conversation-listitem, .msg-conversations-container__convo-item',
     convoSnippet: '.msg-conversation-card__message-snippet, .msg-conversation-card__message-snippet-body',
+    // Live list rows (2026-11) carry no thread link — the open row is marked by
+    // this class instead. The href lookup stays as a cheap fallback.
+    convoActive: '.msg-conversations-container__convo-item-link--active',
     convoLink: 'a[href*="/messaging/thread/"]',
+    threadProfileLink: '.msg-thread__link-to-profile',
     jobRoots: ['.jobs-search__job-details--container', '.jobs-details', '.job-view-layout', '.jobs-description', 'main'],
     messagingFallback: ['.msg-thread', '.scaffold-layout__detail', 'main'],
   };
@@ -54,6 +58,9 @@
   const EXCLUDE = [
     '[contenteditable="true"]', '[contenteditable=""]', 'textarea', 'input', 'select',
     'script', 'style', 'noscript', 'svg', '.msg-form', OWN_UI,
+    // LinkedIn chrome inside each message: hover menus (emoji reactions,
+    // "Reply to this message") and screen-reader duplicates. Not message text.
+    '.msg-s-event-listitem__actions-container', '.a11y-text',
   ].join(',');
 
   const BAND_RANK = { low: 0, caution: 1, high: 2 };
@@ -176,7 +183,11 @@
     if (ctx === 'messaging') {
       const list = document.querySelector(SEL.threadList);
       const threadId = threadIdFromHref(location.pathname);
-      if (list) out.push({ uid: 'thread:' + (threadId || 'current'), kind: 'thread', root: list, host: bannerAnchor(list), threadId });
+      // No id in the URL: key the unit by the other party's profile link so an
+      // in-memory dismissal can't leak onto the next thread. Memory only.
+      const prof = threadId ? null : document.querySelector(SEL.threadProfileLink);
+      const key = threadId || (prof ? 'p' + hash(prof.getAttribute('href') || '') : 'current');
+      if (list) out.push({ uid: 'thread:' + key, kind: 'thread', root: list, host: bannerAnchor(list), threadId });
       else page(firstOf(SEL.messagingFallback));
     } else if (ctx === 'profile') {
       page(document.querySelector('main'));
@@ -411,7 +422,11 @@
       const tid = link ? threadIdFromHref(link.getAttribute('href')) : null;
       let band = 'low';
       let why = '';
-      const full = tid && sessionBands.get(tid);
+      let full = tid && sessionBands.get(tid);
+      if (!full && item.querySelector(SEL.convoActive)) {
+        const open = scanned.find((u) => u.kind === 'thread');
+        if (open) full = { band: open.result.band, why: summary(open.result) };
+      }
       if (full) {
         band = full.band;
         why = 'opened conversation: ' + full.why;

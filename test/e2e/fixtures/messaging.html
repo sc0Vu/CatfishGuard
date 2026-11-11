@@ -10,24 +10,59 @@ aside ul{list-style:none;margin:0;padding:0}.msg-conversation-listitem{padding:8
 <!-- Minimal stand-in for LinkedIn's messaging DOM; class names mirror the ones the content script targets.
      It is NOT LinkedIn's real markup — live selectors must be verified on linkedin.com. -->
 <main class="layout">
+  <!-- Mirrors the live list (2026-11): rows have NO thread link; the open row carries
+       msg-conversations-container__convo-item-link--active; previews are "Name: …", "You: …" or "InMail • …". -->
   <aside class="msg-conversations-container">
-    <ul>
-      <li class="msg-conversation-listitem"><a href="/messaging/thread/2-abc/">Jane (fixture)</a>
-        <p class="msg-conversation-card__message-snippet">Hi! We came across your profile.</p></li>
-      <li class="msg-conversation-listitem"><a href="/messaging/thread/3-def/">Sam (fixture)</a>
-        <p class="msg-conversation-card__message-snippet">Add me on WhatsApp, the registration fee is refundable</p></li>
-      <li class="msg-conversation-listitem"><a href="/messaging/thread/4-ghi/">Priya (fixture)</a>
-        <p class="msg-conversation-card__message-snippet">Thanks for applying, our interview process has 3 rounds</p></li>
-      <li class="msg-conversation-listitem"><a href="/messaging/thread/5-jkl/">Alex (fixture)</a>
-        <p class="msg-conversation-card__message-snippet">You: is a seed phrase needed? I can use Telegram</p></li>
+    <ul class="list-style-none msg-conversations-container__conversations-list" aria-label="Conversation List">
+      <li class="ember-view scaffold-layout__list-item msg-conversation-listitem msg-conversations-container__convo-item">
+        <div class="msg-conversation-card"><div class="msg-conversation-listitem__link msg-conversations-container__convo-item-link msg-conversations-container__convo-item-link--active" tabindex="0">
+          <h3 class="msg-conversation-listitem__participant-names"><span class="truncate">Jane (fixture)</span></h3>
+          <div class="msg-conversation-card__message-snippet-container"><p class="msg-conversation-card__message-snippet m0 t-14">
+            Jane: Hi! We came across your profile.
+          </p></div>
+          <span class="visually-hidden">. Press return to go to conversation details</span>
+        </div></div>
+      </li>
+      <li class="ember-view scaffold-layout__list-item msg-conversation-listitem msg-conversations-container__convo-item">
+        <div class="msg-conversation-card"><div class="msg-conversation-listitem__link msg-conversations-container__convo-item-link" tabindex="0">
+          <h3 class="msg-conversation-listitem__participant-names"><span class="truncate">Sam (fixture)</span></h3>
+          <div class="msg-conversation-card__message-snippet-container"><p class="msg-conversation-card__message-snippet m0 t-14">
+            <span class="msg-conversation-card__pill">InMail</span><span aria-hidden="true" class="msg-conversation-card__message-label-dot">•</span> Add me on WhatsApp, the registration fee is refundable
+          </p></div>
+          <span class="visually-hidden">. Press return to go to conversation details</span>
+        </div></div>
+      </li>
+      <li class="ember-view scaffold-layout__list-item msg-conversation-listitem msg-conversations-container__convo-item">
+        <div class="msg-conversation-card"><div class="msg-conversation-listitem__link msg-conversations-container__convo-item-link" tabindex="0">
+          <h3 class="msg-conversation-listitem__participant-names"><span class="truncate">Priya (fixture)</span></h3>
+          <div class="msg-conversation-card__message-snippet-container"><p class="msg-conversation-card__message-snippet m0 t-14">
+            Priya: Thanks for applying, our interview process has 3 rounds
+          </p></div>
+          <span class="visually-hidden">. Press return to go to conversation details</span>
+        </div></div>
+      </li>
+      <li class="ember-view scaffold-layout__list-item msg-conversation-listitem msg-conversations-container__convo-item">
+        <div class="msg-conversation-card"><div class="msg-conversation-listitem__link msg-conversations-container__convo-item-link" tabindex="0">
+          <h3 class="msg-conversation-listitem__participant-names"><span class="truncate">Alex (fixture)</span></h3>
+          <div class="msg-conversation-card__message-snippet-container"><p class="msg-conversation-card__message-snippet m0 t-14">
+            You: is a seed phrase needed? I can use Telegram
+          </p></div>
+          <span class="visually-hidden">. Press return to go to conversation details</span>
+        </div></div>
+      </li>
+      <li class="ember-view msg-conversation-card--occluded scaffold-layout__list-item msg-conversation-listitem msg-conversations-container__convo-item"></li>
     </ul>
   </aside>
   <div class="msg-thread">
-    <h2 class="msg-entity-lockup__entity-title">Jane (fixture)</h2>
+    <a class="msg-thread__link-to-profile" href="https://www.linkedin.com/in/ACoAAFixtureJane"><h2 class="msg-entity-lockup__entity-title">Jane (fixture)</h2></a>
     <div class="msg-s-message-list-container msg-s-message-list-container--column-reversed" style="display:flex;flex-direction:column-reverse">
     <div class="msg-s-message-list">
       <ul>
-        <li class="msg-s-event-listitem msg-s-event-listitem--other"><div class="msg-s-event-listitem__body">
+        <li class="msg-s-event-listitem msg-s-event-listitem--other">
+          <!-- LinkedIn hover chrome inside the message; must NOT be scored ("urgently" would add +8). -->
+          <div class="msg-s-event-listitem__actions-container artdeco-card"><button title="Reply to this message"><span class="artdeco-button__text">Reply urgently</span></button></div>
+          <a class="msg-s-event-listitem__link" href="https://www.linkedin.com/in/ACoAAFixtureJane"><span class="a11y-text">View profile — act now</span></a>
+          <div class="msg-s-event-listitem__body">
           Hi! We came across your profile. We have an urgent remote web3 role paying $900 per day,
           no experience needed. Message me on Telegram: t.me/hr_jane_web3 .
           Details: <a href="https://www.linkedin.com/redir/redirect?url=https%3A%2F%2Fcareers-acme.xyz%2Fapply">careers-acme.xyz/apply</a>

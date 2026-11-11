@@ -224,7 +224,10 @@ async function main() {
       // 2-abc: full score of the open thread (high) · 3-def preview: whatsapp + add me on 30, registration fee 15 = 45
       // 4-ghi: counter only -> low (no dot) · 5-jkl: "You: …" preview is the user's own -> never scored
       const d = await msgPage.waitFor(`(() => { const d = ${dots}; return d.startsWith('hrsc-listdot-high') ? d : null; })()`);
-      assert.equal(d, 'hrsc-listdot-high,hrsc-listdot-caution,-,-');
+      // 5th row is LinkedIn's empty off-screen placeholder -> no dot, no crash
+      assert.equal(d, 'hrsc-listdot-high,hrsc-listdot-caution,-,-,-');
+      const activeTitle = await msgPage.evaluate(`document.querySelector('.hrsc-listdot').title`);
+      assert.match(activeTitle, /opened conversation/, 'open row should use the full thread score, not its preview');
       const title = await msgPage.evaluate(`document.querySelectorAll('.hrsc-listdot')[1].title`);
       assert.match(title, /some risk signals \(message preview: /);
     });
@@ -299,6 +302,22 @@ async function main() {
       await sleep(1000);
       assert.equal(await p2.evaluate(`!!document.querySelector('.hrsc-banner-root')`), false, 'dismissal survives reload');
       await p2.close();
+    });
+
+    await check('URL without thread id: a dismissal does not leak onto the next conversation', async () => {
+      const p = await openPage('https://www.linkedin.com/messaging/');
+      await p.waitFor(banner);
+      await p.evaluate(`document.querySelector('.hrsc-banner-x').click()`);
+      await p.waitFor(`!document.querySelector('.hrsc-banner-root')`);
+      // LinkedIn swaps the open thread in place: new person in the title bar, new messages
+      await p.evaluate(`(() => {
+        document.querySelector('.msg-thread__link-to-profile').setAttribute('href', 'https://www.linkedin.com/in/ACoAAFixtureOther');
+        const ul = document.querySelector('.msg-s-message-list ul');
+        ul.innerHTML = '<li class="msg-s-event-listitem msg-s-event-listitem--other"><div>Contact me on Telegram, then send your seed phrase.</div></li>';
+      })()`);
+      const b = await p.waitFor(banner);
+      assert.match(b, /High risk signals/);
+      await p.close();
     });
 
     await check('a dismissed caution banner re-appears if the conversation escalates to high', async () => {
