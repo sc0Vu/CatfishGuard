@@ -1,0 +1,141 @@
+/* CatfishGuard injected UI. Everything is scoped under .hrsc-root so nothing
+   leaks onto LinkedIn's DOM, and LinkedIn's styles are reset inside it. */
+
+.hrsc-root {
+  all: initial;
+  position: fixed !important;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(380px, calc(100vw - 32px));
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  pointer-events: none; /* only the badge/panel take clicks; never blocks the page */
+
+  --hrsc-bg: #ffffff;
+  --hrsc-fg: #1d2226;
+  --hrsc-muted: #5e6a75;
+  --hrsc-border: #d9dee3;
+  --hrsc-chip: #eef1f4;
+  --hrsc-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
+  --hrsc-low: #6b7a86;
+  --hrsc-caution: #b26a00;
+  --hrsc-high: #c62828;
+  --hrsc-counter: #2e7d32;
+}
+
+@media (prefers-color-scheme: dark) {
+  .hrsc-root {
+    --hrsc-bg: #1f2428;
+    --hrsc-fg: #e8eaed;
+    --hrsc-muted: #a2acb5;
+    --hrsc-border: #3a4148;
+    --hrsc-chip: #2c3238;
+    --hrsc-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+    --hrsc-low: #9aa6b0;
+    --hrsc-caution: #f0a43a;
+    --hrsc-high: #ff6b6b;
+    --hrsc-counter: #6fcf74;
+  }
+}
+
+.hrsc-root *, .hrsc-root *::before, .hrsc-root *::after {
+  box-sizing: border-box;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.hrsc-root button {
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.hrsc-badge {
+  pointer-events: auto;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px !important;
+  border-radius: 999px;
+  border: 1px solid var(--hrsc-border) !important;
+  background: var(--hrsc-bg) !important;
+  color: var(--hrsc-fg) !important;
+  box-shadow: var(--hrsc-shadow);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hrsc-badge:focus-visible, .hrsc-root button:focus-visible {
+  outline: 2px solid #0a66c2;
+  outline-offset: 2px;
+}
+
+.hrsc-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--hrsc-low);
+}
+
+/* proportional to band: quiet on low, assertive (but non-blocking) on high */
+.hrsc-band-low { opacity: 0.75; font-weight: 500; padding: 4px 10px !important; font-size: 12px; }
+.hrsc-band-low:hover { opacity: 1; }
+.hrsc-band-caution .hrsc-dot { background: var(--hrsc-caution); }
+.hrsc-band-caution { border-color: var(--hrsc-caution) !important; }
+.hrsc-band-high .hrsc-dot { background: var(--hrsc-high); }
+.hrsc-band-high {
+  border: 2px solid var(--hrsc-high) !important;
+  color: var(--hrsc-high) !important;
+}
+
+.hrsc-panel {
+  pointer-events: auto;
+  width: 100%;
+  max-height: min(70vh, 560px);
+  overflow: auto;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--hrsc-border);
+  background: var(--hrsc-bg);
+  color: var(--hrsc-fg);
+  box-shadow: var(--hrsc-shadow);
+}
+
+.hrsc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hrsc-title { font-weight: 700; font-size: 14px; }
+.hrsc-x { font-size: 18px !important; line-height: 1; padding: 2px 6px !important; color: var(--hrsc-muted) !important; }
+
+.hrsc-sub, .hrsc-tip, .hrsc-empty { margin: 6px 0 10px; color: var(--hrsc-muted); }
+.hrsc-tip { margin: 10px 0 4px; font-size: 12px; }
+
+.hrsc-reasons { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.hrsc-reason { padding-left: 10px; border-left: 3px solid var(--hrsc-caution); }
+.hrsc-cat-credentials, .hrsc-cat-blocklist { border-left-color: var(--hrsc-high); }
+.hrsc-cat-counter { border-left-color: var(--hrsc-counter); }
+
+.hrsc-reason-row { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.hrsc-points { color: var(--hrsc-muted); font-variant-numeric: tabular-nums; }
+
+.hrsc-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.hrsc-chip {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--hrsc-chip);
+  font-size: 12px;
+  word-break: break-all;
+}
+.hrsc-note { margin-top: 3px; font-size: 12px; color: var(--hrsc-muted); }
+
+.hrsc-foot { display: flex; justify-content: flex-end; margin-top: 6px; }
+.hrsc-link { color: #0a66c2 !important; font-size: 12px; text-decoration: underline; padding: 2px 0 !important; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .hrsc-badge { transition: opacity 0.15s ease; }
+}
