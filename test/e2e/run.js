@@ -36,7 +36,7 @@ function makeCert() {
   const key = path.join(tmp, 'key.pem');
   const cert = path.join(tmp, 'cert.pem');
   execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-subj', '/CN=cfg-e2e',
-    '-addext', 'subjectAltName=DNS:www.linkedin.com,DNS:raw.githubusercontent.com',
+    '-addext', 'subjectAltName=DNS:www.linkedin.com,DNS:raw.githubusercontent.com,DNS:media.licdn.com',
     '-keyout', key, '-out', cert], { stdio: 'ignore' });
   return { key: fs.readFileSync(key), cert: fs.readFileSync(cert) };
 }
@@ -53,6 +53,10 @@ function startServer() {
       if (host === 'raw.githubusercontent.com' && req.url === LIST_PATH) {
         res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
         return res.end(blocklistBody);
+      }
+      if (host === 'media.licdn.com') { // profile photos the page itself loads
+        res.writeHead(200, { 'content-type': 'image/png' });
+        return res.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
       }
       if (host === 'www.linkedin.com') {
         const name = req.url.startsWith('/messaging/thread/2-zh') ? 'messaging-zh.html'
@@ -79,7 +83,7 @@ function launchChrome(port) {
     '--user-data-dir=' + path.join(tmp, 'profile'), '--no-first-run', '--no-default-browser-check',
     '--disable-background-networking', '--disable-component-update', '--disable-sync',
     '--disable-features=OptimizationHints,MediaRouter,Translate',
-    '--host-resolver-rules=MAP www.linkedin.com 127.0.0.1:' + port + ',MAP raw.githubusercontent.com 127.0.0.1:' + port +
+    '--host-resolver-rules=MAP www.linkedin.com 127.0.0.1:' + port + ',MAP raw.githubusercontent.com 127.0.0.1:' + port + ',MAP media.licdn.com 127.0.0.1:' + port +
       ',EXCLUDE localhost',
     '--ignore-certificate-errors', '--window-size=1280,900', 'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe', 'pipe', 'pipe'] });
@@ -270,6 +274,59 @@ async function main() {
       assert.match(text, /claims to recruit for Coinbase/);
       await p.shot('7-impersonation');
       await p.close();
+    });
+
+    const PHOTO = (tag, size) => 'https://media.licdn.com/dms/image/v2/' + tag + '/profile-displayphoto-' + size + '/0/1?e=1&v=beta&t=x';
+    const photoLinks = `[...document.querySelectorAll('.hrsc-photo-link')].map((a) => ({ text: a.textContent, href: a.href, rel: a.rel, target: a.target, rp: a.referrerPolicy }))`;
+
+    await check("reverse image search: offers the other person's LinkedIn photo as links only, no referrer", async () => {
+      const p = await openPage('https://www.linkedin.com/messaging/thread/2-zh/');
+      await p.waitFor(badge);
+      await p.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      const links = await p.waitFor(`(() => { const l = ${photoLinks}; return l.length ? l : null; })()`);
+      const src = PHOTO('FIXTURE-RECRUITER', 'scale_100_100'); // theirs, not FIXTURE-ME
+      assert.deepEqual(links.map((l) => l.href), [
+        'https://lens.google.com/uploadbyurl?url=' + encodeURIComponent(src),
+        'https://tineye.com/search?url=' + encodeURIComponent(src),
+      ]);
+      for (const l of links) {
+        assert.equal(l.target, '_blank');
+        assert.match(l.rel, /noopener/); assert.match(l.rel, /noreferrer/);
+        assert.equal(l.rp, 'no-referrer');
+      }
+      assert.match(await p.evaluate(panelText), /Only shared if you click/);
+      await p.shot('8-photo-search');
+      await p.close();
+    });
+
+    await check('profile page: the largest LinkedIn profile photo (top card) is offered', async () => {
+      const p = await openPage('https://www.linkedin.com/in/jane-doe-fixture/');
+      await p.waitFor(badge);
+      await p.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      const links = await p.waitFor(`(() => { const l = ${photoLinks}; return l.length ? l : null; })()`);
+      assert.ok(links[0].href.includes(encodeURIComponent(PHOTO('FIXTURE-TOPCARD', 'shrink_400_400'))), links[0].href);
+      await p.close();
+    });
+
+    await check('non-LinkedIn images are never offered; the setting hides the action', async () => {
+      const en = await openPage('https://www.linkedin.com/messaging/thread/2-abc/');
+      await en.waitFor(badge);
+      await en.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      await en.waitFor(panelText);
+      assert.equal(await en.evaluate(`document.querySelectorAll('.hrsc-photo').length`), 0, 'data: avatar must not be offered');
+      await en.close();
+
+      const zh = await openPage('https://www.linkedin.com/messaging/thread/2-zh/');
+      await zh.waitFor(badge);
+      await zh.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      await zh.waitFor(`document.querySelectorAll('.hrsc-photo').length === 1`);
+      const pop = await openPage('chrome-extension://' + extId + '/src/popup.html');
+      await pop.evaluate(`chrome.runtime.sendMessage({type:'cfg:saveSettings', settings:{photoSearch:false}})`);
+      await zh.waitFor(`document.querySelector('.hrsc-panel') && document.querySelectorAll('.hrsc-photo').length === 0`);
+      await pop.evaluate(`chrome.runtime.sendMessage({type:'cfg:saveSettings', settings:{photoSearch:true}})`);
+      await zh.waitFor(`document.querySelectorAll('.hrsc-photo').length === 1`);
+      await pop.close();
+      await zh.close();
     });
 
     await check('idle page is quiet: injected banner/dots cause no render loop', async () => {
@@ -524,8 +581,13 @@ async function main() {
 
     // ------------------------------------------------------------- privacy
     await check('only outbound non-page request is the blocklist GET, with no cookies or page data', async () => {
-      const offPage = requests.filter((r) => !(r.host || '').startsWith('www.linkedin.com'));
+      // media.licdn.com = profile photos the LinkedIn page itself loads (not the extension)
+      const offPage = requests.filter((r) => !/^(www\.linkedin\.com|media\.licdn\.com)/.test(r.host || ''));
       assert.ok(offPage.length >= 1, 'expected blocklist fetches');
+      for (const r of requests.filter((x) => /^media\.licdn\.com/.test(x.host || ''))) {
+        assert.equal(r.method, 'GET');
+        assert.match(r.url, /^\/dms\/image\/v2\/FIXTURE-/);
+      }
       for (const r of offPage) {
         assert.equal(r.host.split(':')[0], 'raw.githubusercontent.com', JSON.stringify(r));
         assert.equal(r.method, 'GET');
