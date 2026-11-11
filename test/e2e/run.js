@@ -183,12 +183,13 @@ async function main() {
     const own = (html) => inbound(html).replace(' msg-s-event-listitem--other', '');
 
     let msgPage;
-    await check('thread: hand-derived score 63, scored from inbound messages only', async () => {
+    await check('thread: hand-derived score 68, scored from inbound messages only', async () => {
       msgPage = await openPage('https://www.linkedin.com/messaging/thread/2-abc/');
       const t = await msgPage.waitFor(badge);
-      // inbound only: web3 5 + toogood ($900/day, no experience needed) 20 + offplatform 30 + urgent 8.
+      // inbound only: web3 5 + toogood ($900/day, no experience needed) 20 + offplatform 30 + urgent 8
+      // + linkrisk 5 (the redirect-wrapped link lands on a cheap .xyz domain) = 68.
       // The user's own reply (passport copy, seed phrase, registration fee) must add nothing.
-      assert.equal(scoreOf(t), 63, t);
+      assert.equal(scoreOf(t), 68, t);
       assert.match(t, /High risk signals/);
     });
 
@@ -232,20 +233,43 @@ async function main() {
       assert.match(title, /some risk signals \(message preview: /);
     });
 
-    await check('live-structure zh thread: inbound-only, CJK terms match, hand-derived 13 (low)', async () => {
+    await check('live-structure zh thread: inbound-only, CJK terms, fake-interview pattern -> 38 (caution)', async () => {
       const zh = await openPage('https://www.linkedin.com/messaging/thread/2-zh/');
       const t = await zh.waitFor(badge);
-      // inbound only: crypto 区块链 5 + pressure 会议中等你 8 = 13. The user's own replies add nothing.
-      assert.equal(scoreOf(t), 13, t);
+      // inbound only: crypto 区块链 5 + pressure 会议中等你 8 + devlure github 账号 10 + pattern 15 = 38.
+      // The user's own replies (incl. the company link they posted) add nothing.
+      assert.equal(scoreOf(t), 38, t);
       await zh.evaluate(`document.querySelector('.hrsc-badge').click()`);
       const p = await zh.waitFor(panelText);
       assert.match(p, /区块链/);
       assert.match(p, /会议中等你/);
       assert.match(p, /messages from the other person only/);
-      // low band -> no banner (quiet), corner badge only
-      assert.equal(await zh.evaluate(`!!document.querySelector('.hrsc-banner-root')`), false);
-      await zh.shot('0-live-zh-low');
+      assert.match(p, /Matches a known fake-interview pattern/);
+      const b = await zh.waitFor(banner);
+      assert.match(b, /Some risk signals in this conversation/);
+      await zh.shot('0-live-zh-caution');
       await zh.close();
+    });
+
+    await check('brand impersonation in a live thread: lookalike link + claimed employer mismatch', async () => {
+      const p = await openPage('https://www.linkedin.com/messaging/thread/6-imp/');
+      await p.waitFor(badge);
+      await p.evaluate(`(() => {
+        document.querySelector('.msg-s-message-list ul').innerHTML =
+          '<li class="msg-s-event-listitem msg-s-event-listitem--other"><p class="msg-s-event-listitem__body">' +
+          'Hi! I\\'m a recruiter at Coinbase. Please apply here: ' +
+          '<a href="https://coinbase-careers.com/apply">coinbase-careers.com/apply</a></p></li>';
+      })()`);
+      // impersonation: contains "Coinbase" 35 + claims Coinbase but links elsewhere 15 = 50 (caution)
+      const t = await p.waitFor(`(() => { const t = ${badge}; return t && /· 50$/.test(t) ? t : null; })()`);
+      assert.equal(scoreOf(t), 50);
+      await p.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      const text = await p.waitFor(panelText);
+      assert.match(text, /Links or claims that imitate a known brand/);
+      assert.match(text, /coinbase-careers\.com contains "Coinbase"/);
+      assert.match(text, /claims to recruit for Coinbase/);
+      await p.shot('7-impersonation');
+      await p.close();
     });
 
     await check('idle page is quiet: injected banner/dots cause no render loop', async () => {
@@ -270,7 +294,7 @@ async function main() {
     await check("user's own draft and own new messages never move the score", async () => {
       await msgPage.evaluate(own('Also, should I send my seed phrase and bank details on WhatsApp?'));
       await sleep(1800);
-      assert.equal(scoreOf(await msgPage.evaluate(badge)), 63);
+      assert.equal(scoreOf(await msgPage.evaluate(badge)), 68);
     });
 
     await check('badge is non-blocking: page under it stays clickable', async () => {
@@ -287,7 +311,7 @@ async function main() {
     await check('new inbound message triggers a re-scan (MutationObserver)', async () => {
       await msgPage.evaluate(inbound('To get started, please connect your wallet.'));
       const t = await msgPage.waitFor(`(() => { const t = ${badge}; return t && /· 100$/.test(t) ? t : null; })()`);
-      // 63 + credentials 40 = 103 -> clamped 100
+      // 68 + credentials 40 = 108 -> clamped 100
       assert.equal(scoreOf(t), 100);
     });
 
