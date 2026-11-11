@@ -49,8 +49,13 @@ adds its category's weight once, and each category is capped.
 | money | 15 | 40 | fees, deposits, USDT, gift cards, task payments |
 | crypto | 5 | 20 | web3/defi bait; **3+ distinct terms → +20** |
 | toogood | 10 | 30 | no interview, guaranteed income, pay over $150/h, $800/day, $4k/week or $20k/month |
-| pressure | 8 | 24 | urgency, secrecy |
-| counter | −10 | −20 | ATS hosts, "interview process"… only applied when nothing near-certain fired |
+| pressure | 8 | 24 | urgency, secrecy, "they're waiting for you in the meeting" |
+| devlure | 10 | 20 | "your GitHub", coding test, take-home: weak alone, since real recruiters say this |
+| execlure | 20 | 40 | clone or run a repo, `npm install`, install a meeting app, camera driver, paste a command |
+| pattern | 15 | — | crypto role + (run/install ask, **or** GitHub-sourced outreach + pressure): the fake-interview campaign |
+| impersonation | 35 / 15 | 60 | lookalike, typosquat or homograph domain, brand in a subdomain (35); "I'm a recruiter at X" but no link goes to X (15) |
+| linkrisk | 5–40 | 40 | executable download (40), IP host or `user@host` trick (25), archive (15), shortener, punycode or free email (10), cheap TLD or free hosting (5) |
+| counter | −10 | −20 | ATS hosts, "interview process"… only applied when nothing near-certain fired (credentials, blocklist, impersonation) |
 
 Bands: **0–29 low · 30–59 caution · 60–100 high.**
 
@@ -62,7 +67,25 @@ text, which has no spaces between words, is matched without boundaries.
 Keywords are the *most evadable* signal (a public list is a cheat sheet), so
 they are compiled into each release and never fetched at runtime.
 
-**2. Infrastructure blocklist (remote, optional).** Domains, URLs, handles,
+**2. Domains and links (bundled, `src/analyzer.js` → domain module).** Every
+link and domain in the other person's messages is resolved to its
+*registrable domain* using the bundled [Public Suffix List](https://publicsuffix.org)
+(`src/psl.js`, so `google.com.evil.ru` → `evil.ru` and `evil.vercel.app` stays
+separate from `vercel.app`). It is then compared against a bundled list of
+frequently impersonated brands (`BRANDS`):
+- lookalikes after folding homoglyphs (`pаypal` with a Cyrillic а, `paypa1`, `rnicrosoft`);
+- one-letter typos (`linkedln`);
+- a brand name inside another domain (`coinbase-careers.com`) or in front of one (`coinbase.hr-portal.io`);
+- the same name on another TLD.
+
+Common-word brands (Notion, Lever, Meta…) are only matched exactly, so
+`motion.com` isn't flagged. A message that claims an employer ("I'm a
+recruiter at Coinbase", "我是 X 的招聘") while no link goes to that employer's
+domain is flagged at a lower weight.
+
+Everything runs locally, and nothing is looked up online.
+
+**3. Infrastructure blocklist (remote, optional).** Domains, URLs, handles,
 wallet addresses and throwaway emails. A hit adds +60 and on its own puts the
 score in the high band. LinkedIn's `/redir/redirect?url=` wrapper is unwrapped
 first, and subdomains match their parent domain.
@@ -132,6 +155,11 @@ real MetaMask list. Set `CFG_SHOTS=dir` to save e2e screenshots.
 - The real control is behavioural: verify the recruiter through the company's
   own site, and never enter keys, codes, logins or ID documents on a page reached
   from a message.
+
+## Third-party data
+`src/psl.js` is the Public Suffix List, © Mozilla and contributors, under the
+[Mozilla Public License 2.0](https://mozilla.org/MPL/2.0/). It is vendored as
+data by `npm run psl` (`tools/mk_psl.py`).
 
 ## Privacy
 See [PRIVACY.md](PRIVACY.md). In short: everything runs locally, and the only
