@@ -1,0 +1,196 @@
+# CLAUDE.md
+
+## Project
+**CatfishGuard** — a Manifest V3 Chrome extension that flags **recruiter/job
+scams and phishing on LinkedIn**. (Name it `CatfishGuard` in `manifest.json`;
+the internal `hrsc-` UI prefix can stay or migrate to `cfg-` — cosmetic.)
+Vanilla JS, no build step, no framework, no bundler — loads unpacked.
+It reads the recruiter message / profile / job post in view, scores it, and shows
+a risk badge with the exact signals that fired.
+
+It is a **defensive aid, not a verdict.** The output is always "here are the risk
+signals, you decide," never "this person is a scammer." Keyword matching has false
+positives by design (a real fintech recruiter says "blockchain"), so every score
+ships with its reasons.
+
+Owner reasons from first principles: on a design choice, name the governing
+constraint (evasion, false-positive cost, permission surface, where the signal is
+cheap vs expensive to fake) rather than copying another scam-detector.
+
+## Non-negotiable invariants (stop and flag if a change would violate one)
+1. **Local only.** Nothing about the page, the recruiter, or the user leaves the
+   browser. The one network call is fetching the public blocklist (see §Signals).
+   No telemetry, no analytics, no uploading page content.
+2. **Never a record about a named person.** The extension matches scam
+   *infrastructure* (domains, handles, wallet addresses) and message *text*. It
+   never builds, stores, or ships a list of named individuals labelled "scammer" —
+   that is defamation and targeting, and a public version is worse. A private,
+   on-device "I flagged this profile" note is the only per-person memory allowed,
+   and it never syncs or publishes.
+3. **Flags, not verdicts.** Every surfaced score shows *why* (which phrases /
+   indicators fired). No UI copy asserts someone is a scammer. Bands and reasons,
+   never a confident accusation.
+4. **Data, never code, from any external source.** MV3's CSP forbids remote code;
+   honour it. External lists (the blocklist) are pure data. Terms are matched as
+   **literal strings** (escape regex metachars — see `analyzer.js countTerm`);
+   never compile a regex supplied by an external/public file (ReDoS risk, no JS
+   regex timeout).
+5. **Minimal permissions.** No broad `host_permissions`, no always-on scanning of
+   arbitrary pages, no feature that transmits a visited URL off-device, without an
+   explicit decision and (for off-device lookups) user opt-in. Default to
+   `activeTab` / on-demand. Adding a permission is a deliberate act, not a
+   convenience.
+6. **Non-blocking UI.** The alert is injected DOM — never a modal, a browser
+   notification, or anything that blocks the page. A false positive must never
+   stand between the user and what they're reading.
+7. **Validate external input.** Treat a fetched list as hostile: validate schema,
+   clamp weights/counts into sane ranges, degrade to "ignored" on garbage. A bad
+   file must never break scoring or freeze the page.
+
+## Architecture / layout
+```
+manifest.json            MV3 manifest; content script on *.linkedin.com; host perm
+                         for raw.githubusercontent.com + gist; storage permission
+src/
+  analyzer.js            the scoring engine (no deps). RULES = weighted keyword
+                         categories; blocklist matching (our schema +
+                         eth-phishing-detect schema); returns {score, band,
+                         reasons[]}. Self-contained; attaches self.HRScam.
+  content.js             extracts visible LinkedIn text + links, runs the analyzer,
+                         renders the floating risk badge + reason panel. Debounced
+                         MutationObserver + SPA-nav poll re-scan.
+  background.js          service worker: fetch + cache the GitHub blocklist
+                         (6h TTL), merge over the bundled seed, answer the content
+                         script. Supports both blocklist schemas.
+  popup.html / popup.js  settings: enable toggle, blocklist URL, refresh, re-scan,
+                         last-result for the active tab.
+  styles.css             injected UI; light/dark; hrsc- prefixed; high z-index.
+data/
+  blocklist.seed.json    bundled empty-but-valid seed (infrastructure only, no
+                         names); merged under the remote list so it works offline.
+icons/                   icon16/48/128 (generated; see mk_icons.py in scratch)
+README.md                install + blocklist format + tuning
+PRIVACY.md               privacy policy (store-required; see §Store & privacy)
+```
+
+## Signals — two kinds, matched to how evadable they are
+**1. Keyword score (bundled, in `analyzer.js RULES`).** Weighted categories:
+`credentials` (seed phrase / wallet-connect / passport / bank — near-certain),
+`offplatform` (Telegram/WhatsApp push), `money` (fees, deposits, task-payment,
+USDT), `crypto` (web3/defi/rwa bait — has a cluster bonus: 3+ distinct terms
+→ +20), `toogood` (unrealistic pay / no process), `pressure` (urgency/secrecy),
+plus `counter` legit signals (ATS hosts, "interview process") that soften the
+score only when nothing near-certain fired. Each category is capped so one can't
+dominate. Bands: **0–29 low / 30–59 caution / 60–100 high**. A blocklist hit or a
+credential/wallet request pushes to high on its own.
+
+**2. Blocklist (remote, in `background.js`).** Infrastructure indicators only —
+domains, URLs, off-platform handles, wallet addresses, throwaway emails — fetched
+from a GitHub raw URL set in the popup, cached, merged over the bundled seed.
+Accepts this project's schema and MetaMask `eth-phishing-detect`
+(`blacklist`/`fuzzylist`). Prefer **reusing existing maintained lists** over
+hand-rolling one.
+
+**Why this split:** keywords change slowly and are the *most evadable* signal
+(a public list is a cheat sheet for scammers, who just swap vocabulary), so they
+stay **bundled** — public in the repo as source, compiled into each release, never
+fetched at runtime. Infrastructure changes fast and is *hard to evade* (a scammer
+can't cheaply change the wallet money lands in), so it stays **remote**. Do NOT
+add a runtime `rules.json` fetch for keywords — decided against (evasion + tamper
+surface + complexity for the weakest signal).
+
+## Current state vs planned
+**Built:** keyword analyzer, blocklist fetch/merge, LinkedIn extraction, the
+bottom-right **corner badge** + reason panel, popup settings.
+
+**Planned UI (not yet built):** move the primary alert to a **thin banner pinned
+at the top of the open conversation**, dismissible per-conversation (store the
+dismissed thread id); **dots in the conversation list** for triage; keep the
+corner badge as a robust fallback for when the thread selector misses. Proportional
+to band (quiet on low, assertive-but-non-blocking on high).
+
+**Planned accuracy fix:** scope the message scan to **inbound (recruiter) bubbles
+only**, so the user's own quoted text can't trip the keywords.
+
+## Roadmap (build in this order; each is additive)
+1. **Thread banner + conversation-list dots** + sender-scoped scanning (above).
+2. **Domain / brand-impersonation module** — the high-value, hard-to-evade signal.
+   Claimed-employer vs the registrable domain of each link (needs a bundled Public
+   Suffix List so `google.com.evil.ru` resolves to `evil.ru`), lookalike /
+   typosquat / homograph against a bundled impersonated-brand list, URL risk
+   heuristics (IP, punycode, shorteners, cheap TLDs, `@`), free-email-as-corporate.
+3. **Reverse-image-search button** on a profile photo (one-click to Google
+   Images / TinEye). Caveat: AI-generated faces defeat it.
+4. **Page-check / phishing module — DEFERRED, needs care.** Detect a fake
+   meeting/interview landing page: brand-claim vs actual domain + credential/PII
+   form + URL heuristics, optionally an opt-in reputation feed (community lists or
+   Safe Browsing). **Gated on the permission model:** on-demand `activeTab`
+   ("Check this page" button), NOT broad always-on host permissions. Reputation
+   lookups send the URL off-device → opt-in only. Positioned as recruiter-specific
+   + explainable, not a replacement for the browser's own Safe Browsing.
+5. **Optional local override page** — let a power user tune weights/terms for their
+   own install (`chrome.storage`, private, no network). Scratches the "adjust the
+   rules" itch without a public runtime file.
+
+## Honest limits (keep the UI and claims aligned with these)
+- It's a heuristic. False positives and negatives both happen; the reasons are
+  what make it useful, not the number.
+- A public keyword list is evadable by construction; the strongest signals are the
+  infrastructure blocklist and the domain-impersonation check.
+- The phishing module would partly duplicate Chrome Safe Browsing — its edge is
+  catching fresh recruiter-campaign domains and *explaining why*.
+- The real control is behavioural: never enter credentials/PII on a page reached
+  via a link; verify the recruiter through the company's own channel. The tool's
+  job is to raise the flag loudly enough that the user stops and does that.
+
+## Store & privacy policy (PRIVACY.md — required)
+The Chrome Web Store requires a **privacy policy** for any extension that handles
+user data, and CatfishGuard reads page content — so a `PRIVACY.md` is mandatory,
+hosted at a public URL and linked in the Developer Dashboard → Privacy tab. Keep
+it in sync with what the code actually does; a policy that under-discloses is a
+takedown risk.
+
+What CatfishGuard's policy must state (and today these are all true, which is the
+selling point — keep them true):
+- **What it accesses:** the visible text and links of LinkedIn pages you view, to
+  compute a risk score **locally in the browser**.
+- **What leaves the device:** nothing about you or the pages you view. The only
+  outbound request is a GET to the **public blocklist URL** you configure (GitHub
+  raw); it carries no page content and no personal data (only the unavoidable
+  request metadata any fetch has, e.g. your IP, seen by that host).
+- **Storage:** settings and the blocklist cache live in `chrome.storage.local`,
+  on-device, not synced, never transmitted.
+- **No** analytics, tracking, ads, selling or sharing of data. Single purpose:
+  flagging recruiter scams/phishing.
+- **Permissions justification** (the store asks per-permission): `storage`
+  (settings + cache), host permission for `raw.githubusercontent.com` (fetch the
+  blocklist), content script on `*.linkedin.com` (read the page to score it).
+
+**Keep the policy and the code honest together:** the deferred roadmap items (§5
+reputation lookups, the phishing page-check) would transmit visited URLs
+off-device. Those are **opt-in** and the privacy policy AND the store data-use
+disclosures must be updated *before* shipping them — adding that behaviour
+silently under an unchanged policy is a policy violation. Also complete the
+Dashboard's **Data Use** certifications (limited use, no sale) to match PRIVACY.md.
+
+## Dev / build / run
+- No build step. `chrome://extensions` → Developer mode → **Load unpacked** →
+  the extension folder.
+- Reload the extension after editing; the content script re-injects on next page
+  load. Use the popup's **Re-scan** during iteration.
+- Icons: regenerate with the `mk_icons.py` helper (Pillow) if the shield changes.
+- Analyzer is testable in isolation with Node via a `vm` sandbox that provides
+  `self` + `URL` (see the scratch `test_analyzer.js`). Add a case per new category
+  or rule; assert expected scores derived by hand, never mirror current output.
+
+## Conventions
+- Vanilla JS, no framework/bundler. Keep `analyzer.js` dependency-free and pure
+  (text + links + blocklist in → score out) so it stays unit-testable.
+- UI classes are `hrsc-` prefixed; never leak styles onto LinkedIn's DOM.
+- Wrap every `chrome.storage` / message call so a failure degrades gracefully
+  (the extension must never throw into the page).
+- Honest copy: the panel says "risk signals," "a prompt to look closer," never
+  "scammer." Any new surfaced claim gets the same treatment.
+- Commits: one logical change each; conventional-commit subjects.
+```
+```
