@@ -211,3 +211,20 @@ test('a corrupted cache in storage is re-validated, not trusted', async () => {
   const m = await env.send({ type: 'cfg:match', indicators: { domains: ['evil.xyz', 'x.com'] } });
   assert.deepEqual(plain(m.hits).map((h) => h.value), ['evil.xyz']);
 });
+
+test('a forced refresh is not swallowed by an in-flight unforced one', async () => {
+  const env = makeEnv();
+  await env.send({ type: 'cfg:saveSettings', settings: { blocklistUrl: LIST_URL } });
+  env.store.blocklistMeta.fetchedAt = Date.now() - 7 * 3600 * 1000; // stale -> unforced refresh will fetch
+  let release;
+  env.respond(() => new Promise((r) => { release = () => r(jsonResponse({ schema: 'catfishguard-blocklist', domains: ['old.xyz'] })); }));
+  const background = env.cfg.refresh(false);       // e.g. kicked off by a page scan
+  await new Promise((r) => setTimeout(r, 10));
+  env.respond(() => textResponse('garbage'));      // the user then edits the list and presses "Refresh now"
+  const forced = env.cfg.refresh(true);
+  release();
+  await background;
+  const meta = await forced;
+  assert.match(meta.error, /not valid JSON/, 'forced refresh must actually fetch again');
+  assert.equal(env.fetches.length, 3); // save + background + forced
+});

@@ -110,6 +110,7 @@ function getMatcher() {
 // fetch + validate the remote list
 // ---------------------------------------------------------------------------
 let inflight = null;
+let inflightForced = false;
 
 async function readCapped(res) {
   const len = Number(res.headers.get('content-length'));
@@ -164,7 +165,13 @@ async function fetchList(url) {
 
 /** Refresh the remote list if stale (or always, with force). Never throws. */
 function refresh(force) {
-  if (inflight) return inflight;
+  if (inflight) {
+    // Coalesce with a running refresh — unless this one is forced and the running
+    // one isn't (it may return early as "still fresh"): then run again after it.
+    if (inflightForced || !force) return inflight;
+    return inflight.then(() => refresh(true));
+  }
+  inflightForced = !!force;
   inflight = (async () => {
     const settings = await getSettings();
     const { blocklistMeta } = await storageGet('blocklistMeta');
