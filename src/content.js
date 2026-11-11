@@ -34,6 +34,10 @@
   // LinkedIn selectors in one place — when LinkedIn changes its DOM, fix here.
   const SEL = {
     threadList: '.msg-s-message-list',
+    // The list sits in a flex *column-reverse* container (verified on live
+    // LinkedIn, 2026-11): a banner placed next to the list would render at the
+    // bottom, by the composer. Anchor the banner before this container instead.
+    listContainer: '.msg-s-message-list-container',
     event: '.msg-s-event-listitem',
     inboundClass: 'msg-s-event-listitem--other',
     overlay: '.msg-overlay-conversation-bubble',
@@ -172,7 +176,7 @@
     if (ctx === 'messaging') {
       const list = document.querySelector(SEL.threadList);
       const threadId = threadIdFromHref(location.pathname);
-      if (list) out.push({ uid: 'thread:' + (threadId || 'current'), kind: 'thread', root: list, host: list, threadId });
+      if (list) out.push({ uid: 'thread:' + (threadId || 'current'), kind: 'thread', root: list, host: bannerAnchor(list), threadId });
       else page(firstOf(SEL.messagingFallback));
     } else if (ctx === 'profile') {
       page(document.querySelector('main'));
@@ -183,11 +187,15 @@
       if (b.classList.contains(SEL.overlayMinClass)) return;
       if (!overlayIds.has(b)) overlayIds.set(b, ++overlaySeq);
       const list = b.querySelector(SEL.threadList);
-      out.push({ uid: 'overlay:' + overlayIds.get(b), kind: 'overlay', root: list || b, host: list, bubble: b });
+      out.push({ uid: 'overlay:' + overlayIds.get(b), kind: 'overlay', root: list || b, host: list && bannerAnchor(list), bubble: b });
     });
     // a unit nested inside another is already covered by the outer one
     const units = out.filter((u, i) => !out.some((o, j) => j !== i && o.root !== u.root && o.root.contains(u.root)));
     return { ctx, units };
+  }
+
+  function bannerAnchor(list) {
+    return list.closest(SEL.listContainer) || list;
   }
 
   /** Inbound-only nodes for a conversation, when the DOM marks senders. */

@@ -55,7 +55,8 @@ function startServer() {
         return res.end(blocklistBody);
       }
       if (host === 'www.linkedin.com') {
-        const name = req.url.startsWith('/messaging/') ? 'messaging.html'
+        const name = req.url.startsWith('/messaging/thread/2-zh') ? 'messaging-zh.html'
+          : req.url.startsWith('/messaging/') ? 'messaging.html'
           : req.url.startsWith('/in/') ? 'profile-legit.html'
             : req.url.startsWith('/feed') ? 'feed.html' : null;
         if (name) {
@@ -209,9 +210,13 @@ async function main() {
       assert.match(b, /Pushes the conversation off LinkedIn/);
       const pos = await msgPage.evaluate(`(() => {
         const r = document.querySelector('.hrsc-banner-root');
-        return r.nextElementSibling.classList.contains('msg-s-message-list') && !r.closest('.msg-s-message-list');
+        const list = document.querySelector('.msg-s-message-list');
+        return { before: r.nextElementSibling.classList.contains('msg-s-message-list-container'),
+          inside: !!r.closest('.msg-s-message-list-container'),
+          above: r.getBoundingClientRect().bottom <= list.getBoundingClientRect().top + 1 };
       })()`);
-      assert.equal(pos, true, 'banner should sit directly before (outside) the message list');
+      // live LinkedIn reverses the list container's flex column, so the banner must sit outside it
+      assert.deepEqual(pos, { before: true, inside: false, above: true });
       await msgPage.shot('1-thread-banner');
     });
 
@@ -222,6 +227,22 @@ async function main() {
       assert.equal(d, 'hrsc-listdot-high,hrsc-listdot-caution,-,-');
       const title = await msgPage.evaluate(`document.querySelectorAll('.hrsc-listdot')[1].title`);
       assert.match(title, /some risk signals \(message preview: /);
+    });
+
+    await check('live-structure zh thread: inbound-only, CJK terms match, hand-derived 13 (low)', async () => {
+      const zh = await openPage('https://www.linkedin.com/messaging/thread/2-zh/');
+      const t = await zh.waitFor(badge);
+      // inbound only: crypto 区块链 5 + pressure 会议中等你 8 = 13. The user's own replies add nothing.
+      assert.equal(scoreOf(t), 13, t);
+      await zh.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      const p = await zh.waitFor(panelText);
+      assert.match(p, /区块链/);
+      assert.match(p, /会议中等你/);
+      assert.match(p, /messages from the other person only/);
+      // low band -> no banner (quiet), corner badge only
+      assert.equal(await zh.evaluate(`!!document.querySelector('.hrsc-banner-root')`), false);
+      await zh.shot('0-live-zh-low');
+      await zh.close();
     });
 
     await check('idle page is quiet: injected banner/dots cause no render loop', async () => {

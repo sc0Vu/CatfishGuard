@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Messaging | LinkedIn (fixture, zh)</title>
+<style>
+/* Mirrors the live structure (2026-11): the list lives in a column-REVERSE flex container. */
+body{font-family:sans-serif;margin:0;background:#f4f2ee}
+.msg-thread{max-width:760px;margin:24px auto;background:#fff;border-radius:8px;height:640px;display:flex}
+.relative.display-flex.flex-column{display:flex;flex-direction:column;flex:1;min-height:0}
+.msg-s-message-list-container{display:flex;flex:1;min-height:0}
+.msg-s-message-list-container--column-reversed{flex-direction:column-reverse}
+.msg-s-message-list{overflow:auto;flex:1}.msg-s-message-list-content{list-style:none;margin:0;padding:8px}
+.visually-hidden,.a11y-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.msg-title-bar{padding:8px 12px;border-bottom:1px solid #eee}.msg-form{border-top:1px solid #eee;padding:8px}
+[contenteditable]{border:1px solid #ccc;min-height:32px;padding:6px}.msg-s-event-listitem__profile-picture{display:none}
+</style></head>
+<body>
+<!-- Anonymised copy of the live LinkedIn thread structure (names, profile ids, company and links replaced).
+     Class names, nesting, a11y spans, aria-labels and the column-reversed container are kept as observed. -->
+<div class="msg-convo-wrapper msg-thread msg-thread--pillar relative display-flex">
+ <div class="relative display-flex flex-column flex-grow-1">
+  <div class="msg-title-bar global-title-container shared-title-bar">
+   <a class="msg-thread__link-to-profile" href="https://www.linkedin.com/in/ACoAAFixtureRecruiter">
+    <h2 class="msg-entity-lockup__entity-title">Recruiter (fixture)</h2>
+    <dd class="msg-entity-lockup__entity-info">Project Manager | Building Digital Experiences</dd></a>
+  </div>
+  <div><div class="msg-thread-container msg-thread__thread-actions-tray"></div></div>
+  <div class="msg-s-message-list-container relative display-flex mbA msg-s-message-list-container--column-reversed">
+   <div class="msg-s-message-list msg-s-message-list--scroll-buffer full-width scrollable">
+    <ul class="msg-s-message-list-content list-style-none full-width mbA">
+     <li class="msg-s-message-list__top-of-list"></li>
+
+     <li class="msg-s-message-list__event clearfix">
+      <time class="msg-s-message-list__time-heading">Oct 27</time>
+      <span class="msg-s-event-listitem--group-a11y-heading visually-hidden">Recruiter (fixture) sent the following message at 7:34 AM</span>
+      <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group msg-s-event-listitem--inmail msg-s-event-listitem--other">
+       <a href="https://www.linkedin.com/in/ACoAAFixtureRecruiter" class="msg-s-event-listitem__link"><span class="a11y-text">View Recruiter’s profile</span><img class="msg-s-event-listitem__profile-picture" alt="Recruiter (fixture)"></a>
+       <div class="msg-s-message-group__meta"><span><a href="https://www.linkedin.com/in/ACoAAFixtureRecruiter"><span class="msg-s-message-group__name">Recruiter (fixture)</span></a></span>
+        <time class="msg-s-message-group__timestamp">7:34 AM</time></div>
+       <div class="msg-s-event-listitem__message-bubble">
+        <div class="msg-s-event-listitem__actions-container artdeco-card"><div class="msg-s-event-listitem__reactions-options-ellipsis" aria-label="Options for the message from Recruiter: …"><button type="button" class="msg-s-event-listitem__options-trigger"></button></div></div>
+        <h3 class="msg-s-event-listitem__subject">一个区块链基础设施项目的简短沟通</h3>
+        <div class="msg-s-event-with-indicator display-flex"><div class="msg-s-event__content" dir="ltr">
+         <p class="msg-s-event-listitem__body">您好，<br><a target="_blank" href="https://linkedin.com/in/me-fixture">https://linkedin.com/in/me-fixture</a><br>我关注了您的 GitHub 账号，也看到了您在一个开源项目中的贡献，非常令人印象深刻。我是 nexachain 的技术招聘负责人，我们目前正在组建团队，负责一个全新的区块链基础设施项目。<br>我们正在寻找像您这样具备相关经验的人才。该职位支持远程办公，提供全职或兼职机会。<br>您看本周是否方便进行一次简短的沟通，互相了解一下？<br>祝好，<br><br>Recruiter (fixture)</p>
+        </div></div>
+       </div>
+      </div>
+     </li>
+
+     <li class="msg-s-message-list__event clearfix">
+      <span class="msg-s-event-listitem--group-a11y-heading visually-hidden">Me (fixture) sent the following messages at 3:02 PM</span>
+      <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group">
+       <div class="msg-s-message-group__meta"><span class="msg-s-message-group__name">Me (fixture)</span></div>
+       <div class="msg-s-event-listitem__message-bubble"><div class="msg-s-event__content">
+        <p class="msg-s-event-listitem__body">您好<br>謝謝您的訊息。<br>請問有該公司的網站嗎？想先看一下他們的產品</p></div></div>
+      </div>
+     </li>
+     <li class="msg-s-message-list__event clearfix">
+      <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group">
+       <div class="msg-s-event-listitem__message-bubble"><div class="msg-s-event__content">
+        <p class="msg-s-event-listitem__body">是這個嗎 <a target="_blank" href="https://www.nexachain.example">https://www.nexachain.example</a></p></div></div>
+      </div>
+     </li>
+
+     <li class="msg-s-message-list__event clearfix">
+      <span class="msg-s-event-listitem--group-a11y-heading visually-hidden">Recruiter (fixture) sent the following messages at 5:21 PM</span>
+      <div class="msg-s-event-listitem msg-s-event-listitem--m2m-msg-followed-by-date-boundary msg-s-event-listitem--last-in-group msg-s-event-listitem--other">
+       <div class="msg-s-message-group__meta"><span class="msg-s-message-group__name">Recruiter (fixture)</span></div>
+       <div class="msg-s-event-listitem__message-bubble"><div class="msg-s-event__content">
+        <p class="msg-s-event-listitem__body">感谢您的关注。我想为您安排一场与我们工程负责人的面试。<br><a target="_blank" href="https://calendly.com/lead-nexachain/30min">https://calendly.com/lead-nexachain/30min</a><br>预约好时间后，请告知我。</p></div></div>
+      </div>
+     </li>
+     <li class="msg-s-message-list__event clearfix">
+      <time class="msg-s-message-list__time-heading">Nov 3</time>
+      <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group msg-s-event-listitem--other">
+       <div class="msg-s-event-listitem__message-bubble"><div class="msg-s-event__content">
+        <p class="msg-s-event-listitem__body">嗨，<br>Lead 正在会议中等你。</p></div></div>
+      </div>
+     </li>
+     <li class="msg-s-message-list__event clearfix">
+      <time class="msg-s-message-list__time-heading">Nov 4</time>
+      <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group msg-s-event-listitem--has-seen-receipts msg-s-event-listitem--other">
+       <div class="msg-s-event-listitem__message-bubble"><div class="msg-s-event__content">
+        <p class="msg-s-event-listitem__body">你好<br>我知道你很忙。<br>能否请你安排一个对你方便的时间，我们开个会？</p></div></div>
+      </div>
+     </li>
+     <li class="msg-s-message-list__bottom-of-list"></li>
+    </ul>
+   </div>
+  </div>
+  <div class="align-items-flex-end display-flex artdeco-divider"></div>
+  <form class="msg-form msg-form--thread-footer-feature">
+   <div class="msg-form__contenteditable" contenteditable="true" role="textbox" aria-label="Write a message…"><p><br></p></div>
+   <button class="msg-form__send-button" disabled type="submit">Send</button>
+  </form>
+ </div>
+</div>
+</body></html>
