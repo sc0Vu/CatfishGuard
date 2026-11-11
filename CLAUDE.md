@@ -103,20 +103,24 @@ add a runtime `rules.json` fetch for keywords — decided against (evasion + tam
 surface + complexity for the weakest signal).
 
 ## Current state vs planned
-**Built:** keyword analyzer, blocklist fetch/merge, LinkedIn extraction, the
-bottom-right **corner badge** + reason panel, popup settings.
-
-**Planned UI (not yet built):** move the primary alert to a **thin banner pinned
-at the top of the open conversation**, dismissible per-conversation (store the
-dismissed thread id); **dots in the conversation list** for triage; keep the
-corner badge as a robust fallback for when the thread selector misses. Proportional
-to band (quiet on low, assertive-but-non-blocking on high).
-
-**Planned accuracy fix:** scope the message scan to **inbound (recruiter) bubbles
-only**, so the user's own quoted text can't trip the keywords.
+**Built:** keyword analyzer, blocklist fetch/merge, LinkedIn extraction, popup
+settings, and roadmap #1:
+- each open conversation / overlay / page is scored as its own **unit**;
+- a **thin banner pinned above each open conversation** (caution/high only),
+  dismissible per conversation — the dismissal stores a *hash* of the thread id
+  + band on-device and re-shows only if the band escalates (overlays: memory only);
+- **dots in the conversation list** (open thread's full score, else a
+  keyword-only score of the preview; `You: …` previews are never scored);
+- **inbound-only scanning**: when events carry `msg-s-event-listitem--other`,
+  only those are scored; otherwise it falls back to the whole thread and the
+  panel says so;
+- the **corner badge** + panel stays as the fallback (worst unit; banner "Why?"
+  opens it). All LinkedIn selectors live in `SEL` at the top of `content.js`.
+  They were verified against fixtures, **not yet against live linkedin.com**.
 
 ## Roadmap (build in this order; each is additive)
-1. **Thread banner + conversation-list dots** + sender-scoped scanning (above).
+1. ~~Thread banner + conversation-list dots + sender-scoped scanning~~ — built
+   (above); still needs a pass against live LinkedIn DOM.
 2. **Domain / brand-impersonation module** — the high-value, hard-to-evade signal.
    Claimed-employer vs the registrable domain of each link (needs a bundled Public
    Suffix List so `google.com.evil.ru` resolves to `evil.ru`), lookalike /

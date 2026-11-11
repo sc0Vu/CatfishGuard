@@ -4,8 +4,15 @@ A Manifest V3 Chrome extension that flags **recruiter/job-scam and phishing risk
 signals on LinkedIn**, and always shows **why**.
 
 It reads the conversation, profile or job post in view, scores it **locally**, and
-shows a small badge in the corner. Click it to see every signal that fired. The
-result is a prompt to look closer, never a verdict about a person.
+shows what it found, scaled to the risk level:
+
+- **a thin banner above the open conversation** (caution/high only). It can be
+  dismissed per conversation and comes back only if things escalate;
+- **dots in the conversation list** for triage;
+- **a corner badge** that's always available. Click it, or the banner's
+  "Why?", to see every signal that fired.
+
+The result is a prompt to look closer, never a verdict about a person.
 
 ## Install (unpacked)
 1. `chrome://extensions` → enable **Developer mode**.
@@ -22,8 +29,12 @@ No build step, no dependencies.
 | `/jobs/…` | the job details |
 | anywhere | open (non-minimised) message overlays |
 
-The feed is deliberately not scored, since it would just be noise. Your own
-drafts and form fields are never read.
+Each open conversation is scored on its own. In conversations, **only messages
+from the other person are scored** when LinkedIn marks senders
+(`msg-s-event-listitem--other`). Otherwise it falls back to the whole thread
+and the panel says so. The feed is deliberately not scored, since it would just
+be noise. Your own drafts, form fields and `You: …` list previews are never
+read. LinkedIn selectors live in `SEL` at the top of `src/content.js`.
 
 ## How scoring works
 Two kinds of signal, matched to how easy each is to evade:
@@ -107,8 +118,11 @@ real MetaMask list. Set `CFG_SHOTS=dir` to save e2e screenshots.
   reasons are the useful part, not the number.
 - Keyword lists are evadable by construction. The blocklist and (planned)
   domain-impersonation checks are the harder signals to dodge.
-- LinkedIn changes its DOM. The selectors fall back to `<main>`, but a thread
-  may sometimes be scored together with surrounding UI text.
+- LinkedIn changes its DOM. The selectors were built against fixtures that mimic
+  LinkedIn's class names and need checking on the live site. Fallbacks: `<main>`
+  for the page, and the whole thread when senders can't be told apart.
+- List dots for unopened conversations score only the short preview, so they are
+  a triage hint, not a full check.
 - The real control is behavioural: verify the recruiter through the company's
   own site, and never enter keys, codes, logins or ID documents on a page reached
   from a message.
