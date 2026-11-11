@@ -329,6 +329,56 @@ async function main() {
       await zh.close();
     });
 
+    await check('options page: categories, live preview, save with validation, live effect on LinkedIn, reset', async () => {
+      const opt = await openPage('chrome-extension://' + extId + '/src/options.html');
+      const rows = await opt.waitFor(`document.querySelectorAll('#cats tr').length`);
+      assert.equal(rows, await opt.evaluate(`Object.keys(HRScam.RULES).length`));
+      assert.equal(await opt.evaluate(`document.getElementById('off-credentials').disabled`), true, 'credentials is locked');
+
+      const setField = (id, v) => opt.evaluate(`(() => { const e = document.getElementById(${JSON.stringify(id)});
+        e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+      // preview compares built-in vs unsaved settings: "urgent" = 8, muted = 0
+      await setField('sample', 'Please reply, this is urgent');
+      await setField('mute', 'urgent');
+      await opt.waitFor(`document.getElementById('pv-stock').textContent === '8 (low)' &&
+        document.getElementById('pv-custom').textContent === '0 (low)'`);
+      await setField('mute', '');
+
+      await setField('brands', 'nexachain = nexachain.example');
+      await setField('trusted', '???');
+      await opt.evaluate(`document.getElementById('save').click()`);
+      const warn = await opt.waitFor(`(() => { const t = document.getElementById('warnings').textContent; return t || null; })()`);
+      assert.match(warn, /not a valid domain/);
+      assert.match(await opt.evaluate(`document.getElementById('status').textContent`), /^Saved/);
+      const stored = await opt.evaluate(`chrome.storage.local.get('overrides').then((r) => r.overrides)`);
+      assert.deepEqual(stored.brands, [{ name: 'nexachain', domains: ['nexachain.example'] }]);
+      assert.deepEqual(stored.trustedDomains, []);
+      await opt.shot('9-options');
+
+      // the open LinkedIn thread picks it up: 38 + claimed nexachain without a link to nexachain.example (15) = 53
+      const zh = await openPage('https://www.linkedin.com/messaging/thread/2-zh/');
+      const t = await zh.waitFor(`(() => { const t = ${badge}; return t && /· 53$/.test(t) ? t : null; })()`);
+      assert.equal(scoreOf(t), 53);
+      await zh.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      const p = await zh.waitFor(panelText);
+      assert.match(p, /Custom rules active/);
+      assert.match(p, /claims to recruit for nexachain/);
+
+      // reset (two clicks) -> storage cleared -> open tab goes back to the built-in 38 by itself
+      await opt.evaluate(`document.getElementById('reset').click()`);
+      await opt.evaluate(`document.getElementById('reset').click()`);
+      await opt.waitFor(`chrome.storage.local.get('overrides').then((r) => r.overrides === undefined)`);
+      await zh.waitFor(`(() => { const t = ${badge}; return t && /· 38$/.test(t) ? t : null; })()`);
+      await zh.close();
+      await opt.close();
+    });
+
+    await check('popup links to the rules page', async () => {
+      const pop = await openPage('chrome-extension://' + extId + '/src/popup.html');
+      assert.equal(await pop.evaluate(`!!document.getElementById('customize')`), true);
+      await pop.close();
+    });
+
     await check('idle page is quiet: injected banner/dots cause no render loop', async () => {
       await sleep(1500); // let the previous step's own re-render settle
       const seen = await msgPage.evaluate(`new Promise((resolve) => {
