@@ -271,9 +271,11 @@
   /**
    * @param {string} text     visible page text
    * @param {string[]} links  hrefs on the page
-   * @param {{blocklistHits?: Array<{kind:string,value:string,entry?:string}>}} [opts]
+   * @param {{blocklistHits?: Array<{kind:string,value:string,entry?:string}>, overrides?: object}} [opts]
+   *        overrides: the user's local rule tuning (validated here; see normalizeOverrides)
    */
   function analyze(text, links, opts) {
+    const ov = compileOverrides(opts && opts.overrides);
     const linkList = Array.isArray(links) ? links.filter((l) => typeof l === 'string').slice(0, 1000) : [];
     const hay = normalizeText(String(text == null ? '' : text) + ' \n ' + linkList.join(' '));
     const hits = (opts && Array.isArray(opts.blocklistHits)) ? opts.blocklistHits.slice(0, 50) : [];
@@ -283,7 +285,7 @@
     let raw = 0;
     let counterReason = null;
 
-    for (const [id, rule] of Object.entries(RULES)) {
+    for (const [id, rule] of Object.entries(ov.rules)) {
       const matches = matchCategory(hay, rule.terms);
       if (id === 'toogood') matches.push(...findUnrealisticPay(hay));
       if (!matches.length) continue;
@@ -308,7 +310,7 @@
 
     // Domain / impersonation / link-shape signals (computed from the raw links + text).
     let impersonated = false;
-    for (const d of domainReasons(text, linkList)) {
+    for (const d of domainReasons(text, linkList, ov)) {
       if (d.category === 'impersonation') impersonated = true;
       raw += d.points;
       reasons.push(d);
@@ -366,6 +368,7 @@
       reasons,
       scannedChars: hay.length,
       version: VERSION,
+      custom: ov.active,
     };
   }
 
@@ -891,17 +894,17 @@
   const ARCHIVE_EXT = /\.(?:zip|rar|7z|tar\.gz|tgz)$/i;
 
   /** Brand-impersonation finding for one host, or null. */
-  function brandFinding(host) {
+  function brandFinding(host, ov) {
     const h = hostOf(host);
     const reg = h && registrableDomain(h);
-    if (!reg || OFFICIAL.has(reg) || NEUTRAL.has(reg)) return null;
+    if (!reg || ov.official.has(reg) || ov.neutral.has(reg)) return null;
     const suffix = publicSuffix(h);
     const label = reg.slice(0, reg.length - suffix.length - 1);
     const puny = label.startsWith('xn--');
     const shown = puny ? (punyDecode(label.slice(4)) || label) : label;
     const sk = skeleton(shown);
     const sub = h.slice(0, h.length - reg.length).split(/[.-]/).filter(Boolean);
-    for (const b of BRANDS) {
+    for (const b of ov.brands) {
       for (const t of b.tokens) {
         const tk = skeleton(t);
         if (b.anyTld && label === t) return null; // e.g. google.de
@@ -925,7 +928,7 @@
 
   // "I'm a recruiter at X", "on behalf of X", "我是 X 的…": built only from our
   // own bundled brand names (escaped), never from external data.
-  const claimRegexCache = new Map();
+  const claimRegexCache = new WeakMap();
   function claimRegex(b) {
     if (claimRegexCache.has(b)) return claimRegexCache.get(b);
     const names = [b.name, ...b.tokens].map((x) => escapeRegex(normalizeText(x)));
@@ -961,7 +964,7 @@
   }
 
   /** Domain/link reasons for the analyzer: impersonation + risky links. */
-  function domainReasons(text, links) {
+  function domainReasons(text, links, ov) {
     const urls = collectUrls(text, links);
     const ind = extractIndicators(text, links);
     const imp = new Map();
@@ -971,19 +974,19 @@
     // 1) Impersonation: every host we can see (links, URLs, bare domains, email domains).
     const hosts = new Set(urls.map((u) => u.hostname));
     for (const d of ind.domains) hosts.add(d);
-    for (const h of hosts) note(imp, brandFinding(h));
+    for (const h of hosts) note(imp, brandFinding(h, ov));
 
     // 2) Claimed employer vs where the links actually go.
     const linkRegs = new Set();
     for (const u of urls) {
       const r = registrableDomain(u.hostname);
-      if (r && !NEUTRAL.has(r)) linkRegs.add(r);
+      if (r && !ov.neutral.has(r)) linkRegs.add(r);
     }
     if (linkRegs.size) {
       const hay = normalizeText(text);
-      for (const b of BRANDS) {
+      for (const b of ov.brands) {
         if (!claimRegex(b).test(hay)) continue;
-        if ([...linkRegs].some((r) => OFFICIAL.get(r) === b)) continue;
+        if ([...linkRegs].some((r) => ov.official.get(r) === b)) continue;
         note(imp, {
           term: 'claims to recruit for ' + b.name + ', but no link goes to ' + b.name + '’s domain (links: ' +
             [...linkRegs].slice(0, 3).join(', ') + ')',
@@ -996,7 +999,7 @@
     for (const u of urls) {
       const host = u.hostname.replace(/^\[|\]$/g, '');
       const reg = registrableDomain(host);
-      if (reg && NEUTRAL.has(reg)) continue;
+      if (reg && ov.neutral.has(reg)) continue;
       if (IPV4_RE.test(host) || host.includes(':')) note(risk, { term: 'link to a raw IP address (' + host + ')', points: 25 });
       if (u.username || u.password) {
         note(risk, { term: 'link hides its real destination behind "@" (goes to ' + host + ')', points: 25 });
@@ -1015,7 +1018,8 @@
     }
     for (const e of ind.emails) {
       const d = e.split('@')[1];
-      if (d && FREE_MAIL.has(registrableDomain(d))) note(risk, { term: 'free email address (' + e + ')', points: 10 });
+      const dr = d && registrableDomain(d);
+      if (dr && FREE_MAIL.has(dr) && !ov.neutral.has(dr)) note(risk, { term: 'free email address (' + e + ')', points: 10 });
     }
 
     const reasons = [];
@@ -1030,8 +1034,173 @@
     return reasons;
   }
 
+  // ---------------------------------------------------------------------------
+  // Local overrides (roadmap #5): a power user's private tuning for their own
+  // install, stored in chrome.storage.local. Never fetched, never synced.
+  //
+  // Treated as untrusted input (invariant 7) even though the user wrote it:
+  // storage can be corrupted and an imported file can come from anywhere.
+  // Terms stay literal strings (invariant 4). The credentials category is
+  // locked (can't be disabled or muted), and the credential/blocklist score
+  // floors are not overridable.
+  // ---------------------------------------------------------------------------
+  const LOCKED = new Set(['credentials']);
+  const OVERRIDE_LIMITS = Object.freeze({
+    termsPerCategory: 100, termsTotal: 300, termMin: 2, termMax: 80, mute: 300,
+    brands: 50, domainsPerBrand: 10, brandName: 40, trusted: 200,
+  });
+  const CTRL_RE = /[\u0000-\u001f\u007f]/;
+
+  function clampInt(v, lo, hi) {
+    if (v === '' || v === null || v === undefined || typeof v === 'boolean') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n))) : null;
+  }
+
+  /** Validate raw overrides. Never throws.
+   *  @returns {{overrides: object, warnings: string[]}} */
+  function normalizeOverrides(raw) {
+    const o = { version: 1, categories: {}, addTerms: {}, muteTerms: [], brands: [], trustedDomains: [] };
+    const warnings = [];
+    const warn = (m) => { if (warnings.length < 50) warnings.push(m); };
+    if (!isPlainObject(raw)) {
+      if (raw != null) warn('not a settings object; ignored');
+      return { overrides: o, warnings };
+    }
+
+    if (isPlainObject(raw.categories)) {
+      for (const [id, c] of Object.entries(raw.categories)) {
+        if (!RULES[id]) { warn('unknown category "' + String(id).slice(0, 30) + '" ignored'); continue; }
+        if (!isPlainObject(c)) continue;
+        const neg = RULES[id].weight < 0;
+        const out = {};
+        // locked categories keep a minimum weight so a credential ask never shows "+0"
+        const w = clampInt(c.weight, neg ? -30 : LOCKED.has(id) ? 20 : 0, neg ? 0 : 60);
+        const cap = clampInt(c.cap, neg ? -60 : 0, neg ? 0 : 100);
+        if (w !== null) out.weight = w;
+        if (cap !== null) out.cap = cap;
+        if (c.disabled === true) {
+          if (LOCKED.has(id)) warn('"' + id + '" can’t be turned off (safety floor)');
+          else out.disabled = true;
+        }
+        if (Object.keys(out).length) o.categories[id] = out;
+      }
+    }
+
+    const builtin = new Map(); // normalised built-in term -> category
+    for (const [id, r] of Object.entries(RULES)) for (const t of r.terms) builtin.set(normalizeText(t), id);
+    const cleanTerm = (s) => {
+      if (typeof s !== 'string') return null;
+      const t = normalizeText(s).trim();
+      if (t.length < OVERRIDE_LIMITS.termMin || t.length > OVERRIDE_LIMITS.termMax || CTRL_RE.test(t)) return null;
+      return t;
+    };
+
+    let total = 0;
+    if (isPlainObject(raw.addTerms)) {
+      for (const [id, list] of Object.entries(raw.addTerms)) {
+        if (!RULES[id] || !Array.isArray(list)) continue;
+        const seen = new Set();
+        const out = [];
+        for (const s of list) {
+          const t = cleanTerm(s);
+          if (!t) { if (typeof s === 'string' && s.trim()) warn('phrase ignored (2–80 characters): "' + s.slice(0, 30) + '"'); continue; }
+          if (seen.has(t) || builtin.get(t) === id) continue;
+          if (out.length >= OVERRIDE_LIMITS.termsPerCategory || total >= OVERRIDE_LIMITS.termsTotal) {
+            warn('too many custom phrases; extras ignored');
+            break;
+          }
+          seen.add(t); out.push(t); total++;
+        }
+        if (out.length) o.addTerms[id] = out;
+      }
+    }
+
+    if (Array.isArray(raw.muteTerms)) {
+      const seen = new Set();
+      for (const s of raw.muteTerms) {
+        const t = cleanTerm(s);
+        if (!t || seen.has(t)) continue;
+        const id = builtin.get(t);
+        if (!id) { warn('"' + t.slice(0, 30) + '" is not a built-in phrase; nothing to mute'); continue; }
+        if (LOCKED.has(id)) { warn('"' + t.slice(0, 30) + '" is a credential phrase and can’t be muted'); continue; }
+        if (o.muteTerms.length >= OVERRIDE_LIMITS.mute) { warn('too many muted phrases; extras ignored'); break; }
+        seen.add(t); o.muteTerms.push(t);
+      }
+    }
+
+    if (Array.isArray(raw.brands)) {
+      for (const b of raw.brands) {
+        if (o.brands.length >= OVERRIDE_LIMITS.brands) { warn('too many brands; extras ignored'); break; }
+        if (!isPlainObject(b) || typeof b.name !== 'string') continue;
+        const name = b.name.trim().replace(/\s+/g, ' ');
+        if (!name || name.length > OVERRIDE_LIMITS.brandName || CTRL_RE.test(name)) { warn('brand name ignored: "' + name.slice(0, 30) + '"'); continue; }
+        const domains = [];
+        for (const d of Array.isArray(b.domains) ? b.domains : []) {
+          const r = registrableDomain(String(d).replace(/^https?:\/\//i, '').split(/[/?#]/)[0]);
+          if (r && !domains.includes(r) && domains.length < OVERRIDE_LIMITS.domainsPerBrand) domains.push(r);
+          else if (!r) warn('"' + String(d).slice(0, 40) + '" is not a valid domain (brand ' + name + ')');
+        }
+        if (!domains.length) { warn('brand "' + name + '" has no valid domain; ignored'); continue; }
+        o.brands.push({ name, domains });
+      }
+    }
+
+    if (Array.isArray(raw.trustedDomains)) {
+      for (const d of raw.trustedDomains) {
+        const r = registrableDomain(String(d).replace(/^https?:\/\//i, '').split(/[/?#]/)[0]);
+        if (!r) { if (String(d).trim()) warn('"' + String(d).slice(0, 40) + '" is not a valid domain'); continue; }
+        if (o.trustedDomains.includes(r)) continue;
+        if (o.trustedDomains.length >= OVERRIDE_LIMITS.trusted) { warn('too many trusted domains; extras ignored'); break; }
+        o.trustedDomains.push(r);
+      }
+    }
+    return { overrides: o, warnings };
+  }
+
+  let COMPILED_DEFAULT = null;
+  const compiledCache = new WeakMap();
+
+  /** Merge validated overrides over the bundled rules/brands. Cached per raw object. */
+  function compileOverrides(raw) {
+    if (!COMPILED_DEFAULT) {
+      COMPILED_DEFAULT = Object.freeze({ active: false, rules: RULES, brands: BRANDS, official: OFFICIAL, neutral: NEUTRAL });
+    }
+    if (!isPlainObject(raw)) return COMPILED_DEFAULT;
+    if (compiledCache.has(raw)) return compiledCache.get(raw);
+    const { overrides: o } = normalizeOverrides(raw);
+    const mute = new Set(o.muteTerms);
+    const rules = {};
+    for (const [id, base] of Object.entries(RULES)) {
+      const c = o.categories[id] || {};
+      if (c.disabled) continue;
+      rules[id] = Object.assign({}, base, {
+        weight: c.weight !== undefined ? c.weight : base.weight,
+        cap: c.cap !== undefined ? c.cap : base.cap,
+        terms: base.terms.filter((t) => !mute.has(normalizeText(t))).concat(o.addTerms[id] || []),
+      });
+    }
+    const userBrands = o.brands.map((b) => {
+      const token = b.domains[0].split('.')[0];
+      return { name: b.name, tokens: [token], fuzzy: token.length >= 6, domains: b.domains, custom: true };
+    });
+    const official = new Map(OFFICIAL);
+    for (const b of userBrands) for (const d of b.domains) official.set(d, b);
+    const active = Object.keys(o.categories).length > 0 || Object.keys(o.addTerms).length > 0 ||
+      o.muteTerms.length > 0 || o.brands.length > 0 || o.trustedDomains.length > 0;
+    const compiled = Object.freeze({
+      active,
+      rules,
+      brands: BRANDS.concat(userBrands),
+      official,
+      neutral: new Set([...NEUTRAL, ...o.trustedDomains]),
+    });
+    compiledCache.set(raw, compiled);
+    return compiled;
+  }
+
   root.HRScam = Object.freeze({
-    VERSION, RULES, BRANDS, analyze, registrableDomain, publicSuffix, punyDecode, skeleton, bandFor, normalizeText, countTerm, escapeRegex,
+    VERSION, RULES, BRANDS, OVERRIDE_LIMITS, analyze, normalizeOverrides, registrableDomain, publicSuffix, punyDecode, skeleton, bandFor, normalizeText, countTerm, escapeRegex,
     extractIndicators, normalizeBlocklist, mergeBlocklists, createMatcher, countsOf,
     normalizeDomain, normalizeUrl, normalizeHandle, normalizeWallet, normalizeEmail,
   });

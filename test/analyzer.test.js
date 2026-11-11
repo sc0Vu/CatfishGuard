@@ -437,3 +437,101 @@ test('every new label stays a "signal", never a verdict', () => {
   const r = A.analyze("I'm a recruiter at Coinbase https://coinbase-careers.com/x http://1.2.3.4/a.exe your github web3", []);
   for (const x of r.reasons) assert.doesNotMatch(x.label + x.matches.map((m) => m.term).join(' '), /scam(mer)?\b|fraud/i);
 });
+
+// ---------------------------------------------------------------------------
+// local overrides (roadmap #5)
+// ---------------------------------------------------------------------------
+const N = (raw) => plain(A.normalizeOverrides(raw));
+
+test('overrides: garbage degrades to empty, never throws', () => {
+  for (const bad of [null, undefined, 42, 'x', [], { categories: 'x', addTerms: [], brands: {}, muteTerms: 'urgent' }]) {
+    const r = N(bad);
+    assert.deepEqual(r.overrides, { version: 1, categories: {}, addTerms: {}, muteTerms: [], brands: [], trustedDomains: [] });
+  }
+  assert.equal(N(null).warnings.length, 0);
+  assert.equal(N('x').warnings.length, 1);
+});
+
+test('overrides: category weights/caps are clamped; credentials cannot be turned off', () => {
+  const r = N({ categories: {
+    crypto: { weight: '999', cap: -5, disabled: 'yes' },     // 60, 0, not a real "true"
+    counter: { weight: 10, cap: -100 },                       // negative category: 0, -60
+    credentials: { disabled: true, weight: 0 },               // locked: weight floor 20, not disabled
+    nope: { weight: 1 },
+  } });
+  assert.deepEqual(r.overrides.categories, {
+    crypto: { weight: 60, cap: 0 }, counter: { weight: 0, cap: -60 }, credentials: { weight: 20 },
+  });
+  assert.ok(r.warnings.some((w) => /can.t be turned off/.test(w)));
+  assert.ok(r.warnings.some((w) => /unknown category "nope"/.test(w)));
+});
+
+test('overrides: phrases are normalised, length-checked, de-duplicated and capped', () => {
+  const r = N({ addTerms: {
+    pressure: ['Reply within the HOUR', 'x', 'a'.repeat(100), 'urgent', 'reply  within the hour', 'bad\u0001term'],
+    nope: ['ignored'],
+  } });
+  assert.deepEqual(r.overrides.addTerms, { pressure: ['reply within the hour'] });
+  const many = N({ addTerms: { crypto: Array.from({ length: 150 }, (_, i) => 'coin term ' + i) } });
+  assert.equal(many.overrides.addTerms.crypto.length, 100);
+  assert.ok(many.warnings.some((w) => /too many/.test(w)));
+});
+
+test('overrides: only built-in, non-credential phrases can be muted', () => {
+  const r = N({ muteTerms: ['URGENT', 'seed phrase', 'not a builtin phrase'] });
+  assert.deepEqual(r.overrides.muteTerms, ['urgent']);
+  assert.ok(r.warnings.some((w) => /credential phrase/.test(w)));
+  assert.ok(r.warnings.some((w) => /not a built-in phrase/.test(w)));
+});
+
+test('overrides: brands and trusted domains are reduced to registrable domains', () => {
+  const r = N({
+    brands: [
+      { name: '  nexachain ', domains: ['https://www.nexachain.example/careers', 'bad domain'] },
+      { name: '', domains: ['x.com'] },
+      { name: 'NoDomain', domains: [] },
+    ],
+    trustedDomains: ['https://acme.vercel.app/x', 'acme.vercel.app', '???'],
+  });
+  assert.deepEqual(r.overrides.brands, [{ name: 'nexachain', domains: ['nexachain.example'] }]);
+  assert.deepEqual(r.overrides.trustedDomains, ['acme.vercel.app']);
+});
+
+test('overrides: effects on scoring (hand-derived)', () => {
+  const S = (text, overrides, links = []) => A.analyze(text, links, { overrides });
+  assert.equal(S('urgent', { muteTerms: ['urgent'] }).score, 0);
+  assert.equal(S('Please reply within the hour', { addTerms: { pressure: ['reply within the hour'] } }).score, 8);
+  assert.equal(S('urgent', { categories: { pressure: { weight: 20 } } }).score, 20);
+  assert.equal(S('web3 defi nft airdrop', { categories: { crypto: { disabled: true } } }).score, 0);
+  // literal, never a regex
+  assert.equal(S('x (a+)+$ y', { addTerms: { pressure: ['(a+)+$'] } }).score, 8);
+  assert.equal(S('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!', { addTerms: { pressure: ['(a+)+$'] } }).score, 0);
+  // trusted domain silences its own link signals
+  assert.equal(S('see', {}, ['https://acme.vercel.app/']).score, 5);
+  assert.equal(S('see', { trustedDomains: ['acme.vercel.app'] }, ['https://acme.vercel.app/']).score, 0);
+});
+
+test('overrides: safety floors hold even against hostile settings', () => {
+  const hostile = { categories: { credentials: { disabled: true, weight: 0, cap: 0 } }, muteTerms: ['seed phrase'] };
+  const r = A.analyze('Send your seed phrase', [], { overrides: hostile });
+  assert.equal(r.critical, true);
+  assert.equal(r.score, 60);
+  const b = A.analyze('hello', [], { overrides: { categories: { pressure: { weight: 0 } } },
+    blocklistHits: [{ kind: 'domain', value: 'evil.xyz' }] });
+  assert.equal(b.score, 60);
+});
+
+test('overrides: a user brand catches the claimed-employer mismatch and lookalikes', () => {
+  const brand = { brands: [{ name: 'nexachain', domains: ['nexachain.example'] }] };
+  const zh = '我是 nexachain 的技术招聘负责人，我们正在组建团队，负责一个全新的区块链基础设施项目。我关注了您的 GitHub 账号。' +
+    ' https://calendly.com/lead-nexachain/30min Lead 正在会议中等你。';
+  const stock = A.analyze(zh, []);
+  assert.equal(stock.score, 38);  // crypto 5 + pressure 8 + devlure 10 + pattern 15
+  const custom = A.analyze(zh, [], { overrides: brand });
+  assert.equal(custom.score, 53); // + claimed nexachain, no link to nexachain.example: 15
+  assert.equal(custom.custom, true);
+  assert.equal(stock.custom, false);
+  assert.match(cat(custom, 'impersonation').matches[0].term, /claims to recruit for nexachain/);
+  assert.equal(A.analyze('apply', ['https://nexachain-careers.com/apply'], { overrides: brand }).score, 35);
+  assert.equal(A.analyze('apply', ['https://jobs.nexachain.example/1'], { overrides: brand }).score, 0);
+});
