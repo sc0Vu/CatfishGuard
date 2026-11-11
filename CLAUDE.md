@@ -127,9 +127,12 @@ settings, and roadmap #1:
   Message hover chrome (`.msg-s-event-listitem__actions-container`) and
   `.a11y-text` are excluded from scoring. **Messaging-list popup verified:**
   `.msg-overlay-list-bubble` uses div rows (`.msg-overlay-list-bubble__convo-item--v2`)
-  and `.msg-overlay-list-bubble__message-snippet--v2` previews. **Still
-  unverified:** an *open* chat popup (`.msg-overlay-conversation-bubble`) and its
-  minimised class.
+  and `.msg-overlay-list-bubble__message-snippet--v2` previews. **Open chat
+  popup verified (inner structure):** same message list / `--other` / `.msg-form`
+  markup as the full thread; expanded state is the header button
+  `.msg-overlay-conversation-bubble__expand-btn[aria-expanded]`, which is what
+  minimise detection keys on (the `--is-minimized` class is kept as an unverified
+  fallback). Popups without a message list are not scored.
 - Keyword rules cover **English + Chinese (simplified/traditional)**. Term
   boundaries are CJK-aware: Han/Kana/Thai characters never act as a boundary
   barrier.
@@ -140,7 +143,7 @@ settings, and roadmap #1:
 
 ## Roadmap (build in this order; each is additive)
 1. ~~Thread banner + conversation-list dots + sender-scoped scanning~~ — built
-   (above); thread, list and list-popup DOM verified live; open chat popup still to verify.
+   (above); thread, list, list popup and open chat popup verified live.
 2. **Domain / brand-impersonation module** — the high-value, hard-to-evade signal.
    Claimed-employer vs the registrable domain of each link (needs a bundled Public
    Suffix List so `google.com.evil.ru` resolves to `evil.ru`), lookalike /
