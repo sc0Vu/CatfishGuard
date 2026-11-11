@@ -186,6 +186,19 @@ settings, and roadmap #1:
    own install (`chrome.storage`, private, no network). Scratches the "adjust the
    rules" itch without a public runtime file.
 
+**Backlog (noted, not scheduled):**
+- **Claimed employer vs sender's own headline.** Pull the claimed company from
+  inbound messages ("I'm a … at X", "recruiter for X", "on behalf of X",
+  "我是 X 的…", "来自 X") and compare it with the headline LinkedIn already
+  shows in the thread header (`.msg-entity-lockup__entity-info`, verified
+  live). If the headline doesn't mention X, add a +15 reason: "Says they recruit
+  for X, but their LinkedIn headline doesn't mention X". Synchronous and local:
+  it reads only what's on screen; no profile fetch, nothing stored (invariant 2).
+  Low weight because headlines are self-written (cheap to fake) and real
+  recruiters often have generic headlines or recruit for clients. Motivating
+  case: the anonymised zh fixture (claims a web3 company; headline is "Project
+  Manager | …"), which would go 38 → 53.
+
 ## Honest limits (keep the UI and claims aligned with these)
 - It's a heuristic. False positives and negatives both happen; the reasons are
   what make it useful, not the number.
