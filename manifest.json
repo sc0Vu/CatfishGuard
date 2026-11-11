@@ -15,7 +15,7 @@
   "content_scripts": [
     {
       "matches": ["https://*.linkedin.com/*"],
-      "js": ["src/analyzer.js", "src/content.js"],
+      "js": ["src/psl.js", "src/analyzer.js", "src/content.js"],
       "css": ["src/styles.css"],
       "run_at": "document_idle"
     }

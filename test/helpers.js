@@ -11,6 +11,8 @@ function loadAnalyzer() {
   const sandbox = { URL };
   sandbox.self = sandbox;
   vm.createContext(sandbox);
+  // Same order as the manifest: the bundled Public Suffix List (data), then the engine.
+  vm.runInContext(fs.readFileSync(path.join(SRC, 'psl.js'), 'utf8'), sandbox, { filename: 'psl.js' });
   vm.runInContext(fs.readFileSync(path.join(SRC, 'analyzer.js'), 'utf8'), sandbox, { filename: 'analyzer.js' });
   return sandbox.HRScam;
 }
