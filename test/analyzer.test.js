@@ -137,11 +137,10 @@ test('CJK: terms match inside unspaced text; Latin terms still need boundaries',
   assert.equal(A.analyze('请加我微信，先交押金', []).score, 30);
 });
 
-test('real-world zh recruiter thread (anonymised, inbound only) scores low: keywords alone miss it', () => {
+test('real-world zh recruiter thread (anonymised, inbound only): developer-lure + crypto pattern -> caution', () => {
   // Inbound messages from a live thread (names/company/links replaced). Hand-derived:
-  // crypto 区块链 5 + pressure 会议中等你 8 = 13 -> low. This is the documented gap:
-  // the pattern (GitHub-sourced cold outreach, web3 role, free scheduling link,
-  // "waiting for you in the meeting") isn't keyword-shaped.
+  // Keywords alone gave 13 (low); the developer-outreach rule and the
+  // crypto + outreach + pressure combination lift this pattern to caution.
   const inbound = '您好， https://linkedin.com/in/me-fixture 我关注了您的 GitHub 账号，也看到了您在一个开源项目中的贡献，' +
     '非常令人印象深刻。我是 nexachain 的技术招聘负责人，我们目前正在组建团队，负责一个全新的区块链基础设施项目。' +
     '我们正在寻找像您这样具备相关经验的人才。该职位支持远程办公，提供全职或兼职机会。您看本周是否方便进行一次简短的沟通，互相了解一下？ ' +
@@ -150,8 +149,13 @@ test('real-world zh recruiter thread (anonymised, inbound only) scores low: keyw
   const r = A.analyze(inbound, ['https://calendly.com/lead-nexachain/30min', 'https://linkedin.com/in/me-fixture']);
   assert.equal(cat(r, 'crypto').points, 5);
   assert.equal(cat(r, 'pressure').points, 8);
-  assert.equal(r.score, 13);
-  assert.equal(r.band, 'low');
+  // devlure: 您的 github / github 账号 overlap -> one term, 10; crypto + devlure + pressure pattern +15
+  assert.equal(cat(r, 'devlure').points, 10);
+  assert.equal(cat(r, 'pattern').points, 15);
+  assert.match(cat(r, 'pattern').matches[0].term, /GitHub-sourced outreach \+ pressure/);
+  assert.equal(cat(r, 'impersonation'), undefined); // the claimed company isn't in the brand list
+  assert.equal(r.score, 38); // 5 + 8 + 10 + 15
+  assert.equal(r.band, 'caution');
 });
 
 test('terms are literal: regex metacharacters are escaped', () => {
@@ -322,4 +326,114 @@ test('real MetaMask eth-phishing-detect list parses and matches quickly', { skip
   assert.equal(m.match({ domains: ['linkedin.com', 'google.com'] }).length, 0);
   assert.ok(normMs < 3000 && buildMs < 3000, `normalize ${normMs}ms, build ${buildMs}ms`);
   console.log(`  metamask: ${r.list.domains.length} domains, ${r.list.rejected} rejected, normalize ${normMs}ms, matcher ${buildMs}ms`);
+});
+
+// ---------------------------------------------------------------------------
+// domain / impersonation module (roadmap #2)
+// ---------------------------------------------------------------------------
+test('registrableDomain follows the Public Suffix List', () => {
+  const R = (h) => A.registrableDomain(h);
+  assert.equal(R('login.google.com.evil.ru'), 'evil.ru');
+  assert.equal(R('a.b.example.co.uk'), 'example.co.uk');
+  assert.equal(R('evil.vercel.app'), 'evil.vercel.app');   // private section
+  assert.equal(R('someone.github.io'), 'someone.github.io');
+  assert.equal(R('www.ck'), 'www.ck');                      // exception rule !www.ck
+  assert.equal(R('a.foo.ck'), 'a.foo.ck');                  // wildcard *.ck
+  assert.equal(R('WWW.Coinbase.COM.'), 'coinbase.com');
+  assert.equal(R('co.uk'), null);
+  assert.equal(R('localhost'), null);
+  assert.equal(R('192.168.1.10'), null);
+  assert.equal(R('<script>'), null);
+});
+
+test('punyDecode reveals what an xn-- label spells', () => {
+  assert.equal(A.punyDecode('pypal-4ve'), 'pаypal');   // Cyrillic а
+  assert.equal(A.punyDecode('ggle-55da'), 'gооgle');
+  assert.doesNotThrow(() => A.punyDecode('zzzzzzzzzzzzzzzzzzzz'));
+  assert.doesNotThrow(() => A.punyDecode('-'.repeat(70)));
+});
+
+test('impersonation: each lookalike shape scores 35 (caution on its own)', () => {
+  const imp = (url) => { const r = A.analyze('details', [url]); return [r.score, (cat(r, 'impersonation') || { matches: [] }).matches.map((m) => m.term)[0]]; };
+  let [s, t] = imp('https://coinbase-careers.com/apply');
+  assert.equal(s, 35); assert.match(t, /contains "Coinbase"/);
+  [s, t] = imp('https://www.linkedln.com/jobs/view/1');
+  assert.equal(s, 35); assert.match(t, /one letter away from LinkedIn/);
+  [s, t] = imp('https://coinbase.hr-portal.io/x');
+  assert.equal(s, 35); assert.match(t, /puts "Coinbase" in front of an unrelated domain \(hr-portal\.io\)/);
+  [s, t] = imp('https://xn--pypal-4ve.com/login');
+  assert.equal(s, 35); assert.match(t, /displays as "pаypal"\) imitates PayPal/);
+  [s, t] = imp('https://google.com.evil.ru/signin');
+  assert.equal(s, 35); assert.match(t, /"Google" in front of an unrelated domain \(evil\.ru\)/);
+  [s, t] = imp('https://paypa1.com/');
+  assert.equal(s, 35); assert.match(t, /imitates PayPal/);
+});
+
+test('impersonation: official and look-alike-but-innocent domains stay clean', () => {
+  for (const url of ['https://www.coinbase.com/careers', 'https://www.google.de/', 'https://motion.com/',
+    'https://level.co/', 'https://boards.greenhouse.io/acme/jobs/1', 'https://calendly.com/someone/30min',
+    'https://someone.github.io/portfolio', 'https://media.licdn.com/x.png', 'https://www.linkedin.com/in/x']) {
+    const r = A.analyze('details', [url]);
+    assert.equal(cat(r, 'impersonation'), undefined, url);
+  }
+});
+
+test('same brand name on another TLD: 35 + cheap TLD 5', () => {
+  const r = A.analyze('apply', ['https://coinbase.xyz/apply']);
+  assert.equal(cat(r, 'impersonation').points, 35);
+  assert.equal(cat(r, 'linkrisk').points, 5);
+  assert.equal(r.score, 40);
+});
+
+test('link-risk heuristics and their weights', () => {
+  const score = (links, text = 'see link') => A.analyze(text, links).score;
+  assert.equal(score(['http://192.168.1.10/login']), 25);
+  assert.equal(score(['https://bit.ly/abc123']), 10);
+  assert.equal(score(['https://coinbase.com@evil.example/']), 25);   // userinfo trick
+  assert.equal(score(['https://files.example.org/MeetingApp.dmg']), 40);
+  assert.equal(score(['https://files.example.org/test-project.zip']), 15);
+  assert.equal(score(['https://acme.vercel.app/']), 5);
+  assert.equal(score([], 'Email me at hr.team@gmail.com'), 10);
+  assert.equal(score(['http://10.0.0.1/Setup.exe']), 40);             // 25 + 40 capped at 40
+});
+
+test('claimed employer vs where the links go', () => {
+  const claim = 'Hi, I’m a recruiter at Coinbase. Pick a time: https://calendly.com/some-lead/30min';
+  const r = A.analyze(claim, []);
+  assert.equal(r.score, 15);
+  assert.match(cat(r, 'impersonation').matches[0].term, /claims to recruit for Coinbase, but no link goes to Coinbase/);
+  assert.equal(A.analyze("I'm a recruiter at Coinbase: https://www.coinbase.com/careers", []).score, 0);
+  // talking about the candidate's past employer is not a claim
+  assert.equal(A.analyze('I saw you worked at Coinbase. Book: https://calendly.com/x/30min', []).score, 0);
+  assert.equal(A.analyze('We are recruiting for Binance, see https://jobs.example.org/1', []).score, 15);
+  assert.equal(A.analyze('我是 Coinbase 的技术招聘负责人 https://calendly.com/x/30min', []).score, 15);
+  // no links at all -> nothing to compare
+  assert.equal(A.analyze("I'm a recruiter at Coinbase.", []).score, 0);
+});
+
+test('impersonation disables counter-softening', () => {
+  const r = A.analyze('Our interview process starts here', ['https://coinbase-careers.com/']);
+  assert.equal(r.score, 35);
+  assert.equal(cat(r, 'counter').points, 0);
+});
+
+test('developer lures: outreach is weak, run/install is strong, combinations escalate', () => {
+  // devlure your github profile 10 · execlure clone the repo + npm install 40 · crypto web3 5 · pattern 15 = 70
+  const r = A.analyze('Saw your GitHub profile. Our web3 team needs you to clone the repo and run npm install.', []);
+  assert.equal(cat(r, 'devlure').points, 10);
+  assert.equal(cat(r, 'execlure').points, 40);
+  assert.equal(cat(r, 'pattern').points, 15);
+  assert.equal(r.score, 70);
+  assert.equal(r.band, 'high');
+  // false-positive guards (legit hiring language) stay low
+  assert.equal(A.analyze('We use a take-home exercise.', []).score, 10);
+  assert.equal(A.analyze('We are a fintech building on blockchain. Take-home exercise follows.', []).score, 15);
+  assert.equal(A.analyze('I saw your GitHub profile and your contributions to an open-source project.', []).score, 20);
+  // ClickFix-style ask on its own is already notable: 20 + 20 = 40 caution
+  assert.equal(A.analyze('Your camera is broken, paste this command in your terminal to fix the camera.', []).score, 40);
+});
+
+test('every new label stays a "signal", never a verdict', () => {
+  const r = A.analyze("I'm a recruiter at Coinbase https://coinbase-careers.com/x http://1.2.3.4/a.exe your github web3", []);
+  for (const x of r.reasons) assert.doesNotMatch(x.label + x.matches.map((m) => m.term).join(' '), /scam(mer)?\b|fraud/i);
 });

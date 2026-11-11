@@ -118,8 +118,36 @@
         'today only', 'offer expires', 'respond immediately', 'reply immediately',
         'keep this confidential', 'keep it confidential', "don't tell", 'do not tell',
         'do not share this', "don't share this", 'between us',
+        'waiting for you in the meeting', 'is waiting in the meeting', 'already in the meeting',
+        'join the meeting now', 'waiting for you on the call',
         '尽快', '盡快', '紧急', '緊急', '立即回复', '立即回覆', '保密', '不要告诉', '不要告訴',
         '会议中等你', '會議中等你', '正在等你',
+      ],
+    },
+    devlure: {
+      // Weak on its own: real recruiters mention GitHub and take-homes too.
+      label: 'Developer-targeted outreach (GitHub, coding test)',
+      weight: 10,
+      cap: 20,
+      terms: [
+        'your github', 'your github profile', 'your github account', 'your github repo', 'your contributions',
+        'coding test', 'coding challenge', 'take-home', 'take home test', 'technical assessment', 'test project',
+        'github 账号', 'github账号', 'github 帳號', 'github帳號', '你的 github', '您的 github',
+        '代码测试', '代碼測試', '测试项目', '測試項目',
+      ],
+    },
+    execlure: {
+      // Strong: a recruiter almost never needs you to run code or install software.
+      label: 'Asks you to run, install or download something',
+      weight: 20,
+      cap: 40,
+      terms: [
+        'clone the repo', 'clone the repository', 'clone this repo', 'git clone', 'run the project', 'run the code',
+        'run it locally', 'npm install', 'npm start', 'yarn install', 'pip install',
+        'install the app', 'download the app', 'meeting app', 'install the meeting', 'update zoom', 'zoom update',
+        'update teams', 'camera driver', 'audio driver', 'microphone driver', 'fix your camera', 'fix the camera',
+        'run this command', 'paste this command', 'paste the command', 'terminal command',
+        '克隆', '运行项目', '運行項目', '安装软件', '安裝軟體', '会议软件', '會議軟體', '摄像头驱动', '攝像頭驅動',
       ],
     },
     counter: {
@@ -278,6 +306,33 @@
       reasons.push(reason);
     }
 
+    // Domain / impersonation / link-shape signals (computed from the raw links + text).
+    let impersonated = false;
+    for (const d of domainReasons(text, linkList)) {
+      if (d.category === 'impersonation') impersonated = true;
+      raw += d.points;
+      reasons.push(d);
+    }
+
+    // Combination: each piece is weak alone (real web3 recruiters mention GitHub,
+    // real teams send take-homes). Together they match the documented
+    // fake-interview campaign against crypto developers: crypto role + either
+    // "run/install this", or GitHub-sourced outreach followed by meeting pressure.
+    const fired = (id) => reasons.some((r) => r.category === id);
+    if (fired('crypto') && (fired('execlure') || (fired('devlure') && fired('pressure')))) {
+      reasons.push({
+        category: 'pattern',
+        label: 'Matches a known fake-interview pattern against developers',
+        points: 15,
+        matches: [{
+          term: fired('execlure') ? 'crypto role + asks you to run or install something'
+            : 'crypto role + GitHub-sourced outreach + pressure to meet',
+          count: 1,
+        }],
+      });
+      raw += 15;
+    }
+
     if (hits.length) {
       reasons.push({
         category: 'blocklist',
@@ -290,7 +345,7 @@
 
     // Legit-process signals only soften the score when nothing near-certain fired.
     if (counterReason) {
-      if (!critical && !hits.length) {
+      if (!critical && !hits.length && !impersonated) {
         raw += counterReason.points;
       } else {
         counterReason.points = 0;
@@ -650,8 +705,333 @@
     return { match, size: domains.size + urls.size + handles.size + wallets.size + emails.size };
   }
 
+  // ---------------------------------------------------------------------------
+  // Domain / brand-impersonation module (roadmap #2)
+  //
+  // Infrastructure is the signal that is expensive to fake: a scammer can swap
+  // vocabulary for free, but the link has to point *somewhere*. Everything here
+  // is computed from the bundled Public Suffix List and bundled brand list; no
+  // lookups leave the browser.
+  // ---------------------------------------------------------------------------
+  let PSL = null;
+  function psl() {
+    if (PSL) return PSL;
+    const src = typeof root.HRScamPSL === 'string' ? root.HRScamPSL : '';
+    const rules = new Set();
+    const wild = new Set();
+    const except = new Set();
+    for (const r of src.split('\n')) {
+      if (!r) continue;
+      if (r[0] === '!') except.add(r.slice(1));
+      else if (r.startsWith('*.')) wild.add(r.slice(2));
+      else rules.add(r);
+    }
+    PSL = { rules, wild, except, loaded: rules.size > 0 };
+    return PSL;
+  }
+
+  const HOST_RE = /^(?=.{1,253}$)[a-z0-9_](?:[a-z0-9_-]{0,62})(?:\.[a-z0-9_](?:[a-z0-9_-]{0,62}))*$/;
+  const IPV4_RE = /^\d{1,3}(?:\.\d{1,3}){3}$/;
+
+  /** Lowercased ASCII (punycode) hostname, or null. Keeps "www." — the PSL needs it. */
+  function hostOf(s) {
+    if (typeof s !== 'string' || !s || s.length > 300) return null;
+    let h = s.trim().toLowerCase().replace(/\.$/, '');
+    if (/[^\x00-\x7f]/.test(h)) {
+      try { h = new URL('http://' + h).hostname; } catch (_) { return null; }
+    }
+    return HOST_RE.test(h) ? h : null;
+  }
+
+  /** The public suffix of a host, per the PSL algorithm (longest rule wins,
+   *  exceptions beat wildcards, unknown TLDs fall back to the implicit "*"). */
+  function publicSuffix(host) {
+    const labels = host.split('.');
+    const p = psl();
+    if (p.loaded) {
+      for (let i = 0; i < labels.length; i++) {
+        const cand = labels.slice(i).join('.');
+        if (p.except.has(cand)) return labels.slice(i + 1).join('.');
+        if (p.rules.has(cand)) return cand;
+        if (i + 1 < labels.length && p.wild.has(labels.slice(i + 1).join('.'))) return cand;
+      }
+    }
+    return labels[labels.length - 1];
+  }
+
+  /** "login.google.com.evil.ru" -> "evil.ru"; "a.example.co.uk" -> "example.co.uk";
+   *  "evil.vercel.app" -> "evil.vercel.app" (private PSL section). */
+  function registrableDomain(input) {
+    const h = hostOf(input);
+    if (!h || IPV4_RE.test(h) || !h.includes('.')) return null;
+    const suffix = publicSuffix(h);
+    if (h === suffix || !h.endsWith('.' + suffix)) return null;
+    const rest = h.slice(0, h.length - suffix.length - 1);
+    return rest.split('.').pop() + '.' + suffix;
+  }
+
+  // RFC 3492 punycode decode, to see what an "xn--" label really spells.
+  function punyDecode(input) {
+    const base = 36, tMin = 1, tMax = 26, skew = 38, damp = 700;
+    if (typeof input !== 'string' || input.length > 63) return null;
+    const out = [];
+    let n = 128, i = 0, bias = 72;
+    let b = input.lastIndexOf('-');
+    if (b < 0) b = 0;
+    for (let j = 0; j < b; j++) {
+      const c = input.charCodeAt(j);
+      if (c >= 0x80) return null;
+      out.push(c);
+    }
+    const adapt = (delta, numPoints, first) => {
+      delta = first ? Math.floor(delta / damp) : delta >> 1;
+      delta += Math.floor(delta / numPoints);
+      let k = 0;
+      while (delta > ((base - tMin) * tMax) >> 1) { delta = Math.floor(delta / (base - tMin)); k += base; }
+      return Math.floor(k + ((base - tMin + 1) * delta) / (delta + skew));
+    };
+    for (let idx = b > 0 ? b + 1 : 0; idx < input.length;) {
+      const oldi = i;
+      let w = 1;
+      for (let k = base; ; k += base) {
+        if (idx >= input.length) return null;
+        const c = input.charCodeAt(idx++);
+        const digit = c >= 48 && c <= 57 ? c - 22 : c >= 65 && c <= 90 ? c - 65 : c >= 97 && c <= 122 ? c - 97 : base;
+        if (digit >= base) return null;
+        i += digit * w;
+        const t = k <= bias ? tMin : k >= bias + tMax ? tMax : k - bias;
+        if (digit < t) break;
+        w *= base - t;
+        if (w > 1e9 || i > 1e9) return null;
+      }
+      bias = adapt(i - oldi, out.length + 1, oldi === 0);
+      n += Math.floor(i / (out.length + 1));
+      i %= out.length + 1;
+      if (n > 0x10ffff) return null;
+      out.splice(i++, 0, n);
+      if (out.length > 63) return null;
+    }
+    try { return String.fromCodePoint(...out); } catch (_) { return null; }
+  }
+
+  // Visual skeleton: fold common Cyrillic/Greek homoglyphs and digit swaps so
+  // "pаypal" (Cyrillic а), "paypa1" and "rnicrosoft" all compare as the brand.
+  const CONFUSABLE = {
+    'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c', 'у': 'y', 'х': 'x', 'і': 'i', 'ј': 'j', 'ԁ': 'd',
+    'ѕ': 's', 'һ': 'h', 'ɡ': 'g', 'ӏ': 'l', 'ⅼ': 'l', 'ο': 'o', 'α': 'a', 'ν': 'v', 'κ': 'k', 'ι': 'i',
+    'τ': 't', 'ρ': 'p', 'ε': 'e', 'υ': 'u', 'ı': 'i', 'ł': 'l', '0': 'o', '1': 'l', '3': 'e', '5': 's',
+  };
+  function skeleton(label) {
+    const s = String(label).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    return Array.from(s).map((c) => CONFUSABLE[c] || c).join('')
+      .replace(/rn/g, 'm').replace(/vv/g, 'w').replace(/[-_.]/g, '');
+  }
+
+  // Frequently impersonated in recruiting/crypto scams. `fuzzy`: name is
+  // distinctive enough for typo/containment/subdomain checks (common words like
+  // "notion", "lever", "meta" are not — "motion.com" is not a Notion phish).
+  // `anyTld`: the brand legitimately uses many country TLDs.
+  const BRANDS = [
+    { name: 'LinkedIn', tokens: ['linkedin'], fuzzy: true, domains: ['linkedin.com', 'lnkd.in', 'licdn.com', 'linkedin.cn'] },
+    { name: 'Google', tokens: ['google'], fuzzy: true, anyTld: true,
+      domains: ['google.com', 'googleusercontent.com', 'googleapis.com', 'gstatic.com', 'withgoogle.com', 'goo.gl', 'g.co', 'youtube.com', 'google.dev'] },
+    { name: 'Microsoft', tokens: ['microsoft', 'microsoftonline', 'sharepoint'], fuzzy: true,
+      domains: ['microsoft.com', 'microsoftonline.com', 'sharepoint.com', 'live.com', 'office.com', 'outlook.com', 'azure.com', 'skype.com', 'bing.com'] },
+    { name: 'Apple', tokens: ['apple', 'icloud'], sub: true, anyTld: true, domains: ['apple.com', 'icloud.com'] },
+    { name: 'Amazon', tokens: ['amazon'], fuzzy: true, anyTld: true, domains: ['amazon.com', 'amazon.jobs', 'amazonaws.com', 'a2z.com'] },
+    { name: 'Meta', tokens: ['facebook', 'metacareers'], fuzzy: true,
+      domains: ['meta.com', 'meta.ai', 'facebook.com', 'fb.com', 'metacareers.com', 'instagram.com', 'whatsapp.com', 'whatsapp.net'] },
+    { name: 'PayPal', tokens: ['paypal'], fuzzy: true, anyTld: true, domains: ['paypal.com', 'paypal.me', 'paypalobjects.com'] },
+    { name: 'Coinbase', tokens: ['coinbase'], fuzzy: true, domains: ['coinbase.com'] },
+    { name: 'Binance', tokens: ['binance'], fuzzy: true, domains: ['binance.com', 'binance.us', 'bnbchain.org'] },
+    { name: 'Kraken', tokens: ['kraken'], domains: ['kraken.com'] },
+    { name: 'MetaMask', tokens: ['metamask'], fuzzy: true, domains: ['metamask.io', 'consensys.io', 'consensys.net'] },
+    { name: 'OpenSea', tokens: ['opensea'], fuzzy: true, domains: ['opensea.io'] },
+    { name: 'Uniswap', tokens: ['uniswap'], fuzzy: true, domains: ['uniswap.org'] },
+    { name: 'Ledger', tokens: ['ledger'], domains: ['ledger.com'] },
+    { name: 'Trezor', tokens: ['trezor'], fuzzy: true, domains: ['trezor.io'] },
+    { name: 'Bybit', tokens: ['bybit'], fuzzy: true, domains: ['bybit.com'] },
+    { name: 'Crypto.com', tokens: ['cryptocom'], domains: ['crypto.com'] },
+    { name: 'Zoom', tokens: ['zoom'], domains: ['zoom.us', 'zoom.com', 'zoomgov.com'] },
+    { name: 'Calendly', tokens: ['calendly'], fuzzy: true, domains: ['calendly.com'] },
+    { name: 'DocuSign', tokens: ['docusign'], fuzzy: true, domains: ['docusign.com', 'docusign.net'] },
+    { name: 'Dropbox', tokens: ['dropbox'], fuzzy: true, domains: ['dropbox.com', 'dropboxusercontent.com'] },
+    { name: 'Indeed', tokens: ['indeed'], anyTld: true, domains: ['indeed.com'] },
+    { name: 'Glassdoor', tokens: ['glassdoor'], fuzzy: true, anyTld: true, domains: ['glassdoor.com'] },
+    { name: 'Greenhouse', tokens: ['greenhouse'], fuzzy: true, domains: ['greenhouse.io'] },
+    { name: 'Lever', tokens: ['lever'], domains: ['lever.co'] },
+    { name: 'Workday', tokens: ['workday', 'myworkdayjobs'], fuzzy: true, domains: ['workday.com', 'myworkdayjobs.com', 'myworkday.com'] },
+    { name: 'Upwork', tokens: ['upwork'], fuzzy: true, domains: ['upwork.com'] },
+    { name: 'Fiverr', tokens: ['fiverr'], fuzzy: true, domains: ['fiverr.com'] },
+    { name: 'Toptal', tokens: ['toptal'], fuzzy: true, domains: ['toptal.com'] },
+    { name: 'Deel', tokens: ['deel'], domains: ['deel.com'] },
+    { name: 'GitHub', tokens: ['github'], fuzzy: true, domains: ['github.com', 'github.io', 'githubusercontent.com', 'github.dev', 'githubassets.com'] },
+    { name: 'GitLab', tokens: ['gitlab'], fuzzy: true, domains: ['gitlab.com', 'gitlab.io'] },
+    { name: 'Discord', tokens: ['discord'], fuzzy: true, domains: ['discord.com', 'discord.gg', 'discordapp.com'] },
+    { name: 'Telegram', tokens: ['telegram'], fuzzy: true, domains: ['telegram.org', 't.me', 'telegram.me'] },
+    { name: 'Netflix', tokens: ['netflix'], fuzzy: true, domains: ['netflix.com'] },
+    { name: 'Revolut', tokens: ['revolut'], fuzzy: true, domains: ['revolut.com'] },
+    { name: 'Optiver', tokens: ['optiver'], fuzzy: true, domains: ['optiver.com'] },
+  ];
+  const OFFICIAL = new Map();
+  for (const b of BRANDS) for (const d of b.domains) OFFICIAL.set(d, b);
+
+  const NEUTRAL = new Set(['linkedin.com', 'lnkd.in', 'licdn.com']);
+  const SHORTENERS = new Set(['bit.ly', 'tinyurl.com', 'cutt.ly', 'rebrand.ly', 'is.gd', 'shorturl.at', 'rb.gy',
+    't.ly', 'tiny.cc', 'ow.ly', 'buff.ly', 's.id', 'v.gd', 'bl.ink', 'short.io', 'tinyurl.is', 'goo.su', 'clck.ru']);
+  const CHEAP_TLDS = new Set(['xyz', 'top', 'click', 'icu', 'buzz', 'rest', 'cfd', 'sbs', 'monster', 'quest', 'gq',
+    'tk', 'ml', 'cf', 'ga', 'zip', 'mov', 'lol', 'online', 'site', 'live', 'cyou', 'bond', 'beauty', 'hair', 'skin']);
+  const FREE_HOSTS = new Set(['vercel.app', 'netlify.app', 'github.io', 'pages.dev', 'web.app', 'firebaseapp.com',
+    'herokuapp.com', 'glitch.me', 'replit.app', 'repl.co', 'onrender.com', 'wixsite.com', 'weebly.com',
+    'blogspot.com', 'notion.site', 'carrd.co', 'framer.website', 'webflow.io', 'surge.sh', 'ngrok.io', 'ngrok-free.app']);
+  const FREE_MAIL = new Set(['gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'yahoo.com',
+    'icloud.com', 'me.com', 'aol.com', 'proton.me', 'protonmail.com', 'gmx.com', 'gmx.net', 'mail.com', 'yandex.ru',
+    'yandex.com', 'qq.com', '163.com', '126.com', 'foxmail.com', 'zoho.com', 'tutanota.com', 'hushmail.com']);
+  const EXEC_EXT = /\.(?:exe|msi|msix|dmg|pkg|apk|bat|cmd|scr|ps1|vbs|jar|iso|appimage|deb|rpm|command)$/i;
+  const ARCHIVE_EXT = /\.(?:zip|rar|7z|tar\.gz|tgz)$/i;
+
+  /** Brand-impersonation finding for one host, or null. */
+  function brandFinding(host) {
+    const h = hostOf(host);
+    const reg = h && registrableDomain(h);
+    if (!reg || OFFICIAL.has(reg) || NEUTRAL.has(reg)) return null;
+    const suffix = publicSuffix(h);
+    const label = reg.slice(0, reg.length - suffix.length - 1);
+    const puny = label.startsWith('xn--');
+    const shown = puny ? (punyDecode(label.slice(4)) || label) : label;
+    const sk = skeleton(shown);
+    const sub = h.slice(0, h.length - reg.length).split(/[.-]/).filter(Boolean);
+    for (const b of BRANDS) {
+      for (const t of b.tokens) {
+        const tk = skeleton(t);
+        if (b.anyTld && label === t) return null; // e.g. google.de
+        if (label === t && b.fuzzy) return { term: reg + ' uses the name "' + b.name + '" on a different domain', points: 35 };
+        if (sk === tk && label !== t) {
+          return { term: reg + (puny ? ' (displays as "' + shown + '")' : '') + ' imitates ' + b.name, points: 35 };
+        }
+        if (b.fuzzy && tk.length >= 6 && sk.length >= 5 && levenshteinWithin(sk, tk, 1)) {
+          return { term: reg + ' is one letter away from ' + b.name, points: 35 };
+        }
+        if (b.fuzzy && tk.length >= 5 && sk.includes(tk)) {
+          return { term: reg + ' contains "' + b.name + '" but is not ' + b.name + '’s domain', points: 35 };
+        }
+        if ((b.fuzzy || b.sub) && sub.some((piece) => skeleton(piece) === tk)) {
+          return { term: h + ' puts "' + b.name + '" in front of an unrelated domain (' + reg + ')', points: 35 };
+        }
+      }
+    }
+    return null;
+  }
+
+  // "I'm a recruiter at X", "on behalf of X", "我是 X 的…": built only from our
+  // own bundled brand names (escaped), never from external data.
+  const claimRegexCache = new Map();
+  function claimRegex(b) {
+    if (claimRegexCache.has(b)) return claimRegexCache.get(b);
+    const names = [b.name, ...b.tokens].map((x) => escapeRegex(normalizeText(x)));
+    const a = '(?:' + [...new Set(names)].join('|') + ')';
+    const end = '(?![\\p{L}\\p{N}])';
+    const re = new RegExp([
+      "(?:i'?m|i am|we'?re|we are|my name is)[^.!?\\n]{0,60}?\\b(?:at|from|with|for)\\s+(?:the\\s+)?" + a + end,
+      '(?:recruit(?:er|ing|ment)?|talent|hr|hiring|sourcer)(?:\\s+[\\p{L}]+){0,3}\\s+(?:at|for|from|with)\\s+' + a + end,
+      '(?:on behalf of|here at|role at|position at|opportunit(?:y|ies) (?:at|with)|join(?:ing)?(?: us at)?)\\s+' + a + end,
+      a + "(?:'s)?\\s+(?:is hiring|talent|recruit[\\p{L}]*|hr team|hiring team)",
+      '我是\\s*' + a + '\\s*的', '(?:来自|來自)\\s*' + a, a + '\\s*的\\s*(?:技术|技術)?\\s*(?:招聘|人才|hr)',
+    ].join('|'), 'u');
+    claimRegexCache.set(b, re);
+    return re;
+  }
+
+  function collectUrls(text, links) {
+    const out = [];
+    const seen = new Set();
+    const add = (s) => {
+      if (out.length >= 200 || typeof s !== 'string') return;
+      let u;
+      try { u = new URL(unwrapLinkedInRedirect(s)); } catch (_) { return; }
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+      if (!seen.has(u.href)) { seen.add(u.href); out.push(u); }
+    };
+    for (const l of links) add(l);
+    const re = /\bhttps?:\/\/[^\s<>"'()]{1,2000}/gi;
+    let m;
+    const t = String(text == null ? '' : text).slice(0, MAX_TEXT);
+    while ((m = re.exec(t))) add(m[0].replace(/[.,;:!?]+$/, ''));
+    return out;
+  }
+
+  /** Domain/link reasons for the analyzer: impersonation + risky links. */
+  function domainReasons(text, links) {
+    const urls = collectUrls(text, links);
+    const ind = extractIndicators(text, links);
+    const imp = new Map();
+    const risk = new Map();
+    const note = (map, f) => { if (f && !map.has(f.term)) map.set(f.term, f); };
+
+    // 1) Impersonation: every host we can see (links, URLs, bare domains, email domains).
+    const hosts = new Set(urls.map((u) => u.hostname));
+    for (const d of ind.domains) hosts.add(d);
+    for (const h of hosts) note(imp, brandFinding(h));
+
+    // 2) Claimed employer vs where the links actually go.
+    const linkRegs = new Set();
+    for (const u of urls) {
+      const r = registrableDomain(u.hostname);
+      if (r && !NEUTRAL.has(r)) linkRegs.add(r);
+    }
+    if (linkRegs.size) {
+      const hay = normalizeText(text);
+      for (const b of BRANDS) {
+        if (!claimRegex(b).test(hay)) continue;
+        if ([...linkRegs].some((r) => OFFICIAL.get(r) === b)) continue;
+        note(imp, {
+          term: 'claims to recruit for ' + b.name + ', but no link goes to ' + b.name + '’s domain (links: ' +
+            [...linkRegs].slice(0, 3).join(', ') + ')',
+          points: 15,
+        });
+      }
+    }
+
+    // 3) Risky link shapes.
+    for (const u of urls) {
+      const host = u.hostname.replace(/^\[|\]$/g, '');
+      const reg = registrableDomain(host);
+      if (reg && NEUTRAL.has(reg)) continue;
+      if (IPV4_RE.test(host) || host.includes(':')) note(risk, { term: 'link to a raw IP address (' + host + ')', points: 25 });
+      if (u.username || u.password) {
+        note(risk, { term: 'link hides its real destination behind "@" (goes to ' + host + ')', points: 25 });
+      }
+      const file = decodeURIComponent(u.pathname.split('/').pop() || '');
+      if (EXEC_EXT.test(file)) note(risk, { term: 'link downloads a program (' + file + ')', points: 40 });
+      else if (ARCHIVE_EXT.test(file)) note(risk, { term: 'link downloads an archive (' + file + ')', points: 15 });
+      if (!reg) continue;
+      if (SHORTENERS.has(reg)) note(risk, { term: 'shortened link hides the destination (' + reg + ')', points: 10 });
+      if (host.split('.').some((l) => l.startsWith('xn--')) && !imp.size) {
+        note(risk, { term: 'internationalised (punycode) domain ' + host, points: 10 });
+      }
+      const suffix = publicSuffix(host);
+      if (CHEAP_TLDS.has(suffix)) note(risk, { term: 'cheap, frequently abused domain ending .' + suffix + ' (' + reg + ')', points: 5 });
+      if (FREE_HOSTS.has(suffix)) note(risk, { term: 'site on free hosting (' + reg + ')', points: 5 });
+    }
+    for (const e of ind.emails) {
+      const d = e.split('@')[1];
+      if (d && FREE_MAIL.has(registrableDomain(d))) note(risk, { term: 'free email address (' + e + ')', points: 10 });
+    }
+
+    const reasons = [];
+    const pack = (map, category, label, cap) => {
+      if (!map.size) return;
+      const matches = [...map.values()].slice(0, 20);
+      const points = Math.min(cap, matches.reduce((s, f) => s + f.points, 0));
+      reasons.push({ category, label, points, matches: matches.map((f) => ({ term: f.term, count: 1 })) });
+    };
+    pack(imp, 'impersonation', 'Links or claims that imitate a known brand', 60);
+    pack(risk, 'linkrisk', 'Risky links or contact details', 40);
+    return reasons;
+  }
+
   root.HRScam = Object.freeze({
-    VERSION, RULES, analyze, bandFor, normalizeText, countTerm, escapeRegex,
+    VERSION, RULES, BRANDS, analyze, registrableDomain, publicSuffix, punyDecode, skeleton, bandFor, normalizeText, countTerm, escapeRegex,
     extractIndicators, normalizeBlocklist, mergeBlocklists, createMatcher, countsOf,
     normalizeDomain, normalizeUrl, normalizeHandle, normalizeWallet, normalizeEmail,
   });
