@@ -53,6 +53,11 @@
     // Live list rows (2026-11) carry no thread link — the open row is marked by
     // this class instead. The href lookup stays as a cheap fallback.
     convoActive: '.msg-conversations-container__convo-item-link--active',
+    // Row title (both the /messaging/ list and the corner list popup, live 2026-11)
+    // and the sender name inside each message group. Rows have no thread id, so
+    // a scored conversation is matched back to its row by these names.
+    convoNames: '.msg-conversation-listitem__participant-names, .msg-conversation-card__participant-names',
+    senderName: '.msg-s-message-group__name',
     eventPhoto: 'img.msg-s-event-listitem__profile-picture', // inside each event (live, 2026-11)
     convoLink: 'a[href*="/messaging/thread/"]',
     threadProfileLink: '.msg-thread__link-to-profile',
@@ -97,6 +102,11 @@
   const memDismissed = new Map();         // uid -> band (threads without an id)
   let dismissedThreads = {};               // hash(threadId) -> {band, at}; on-device only
   const sessionBands = new Map();          // threadId -> {band, why}; memory only, for list dots
+  // hash(sender names) -> {band, why}: lets a row keep its conversation's full
+  // score after you leave it. Memory only (this tab), never stored, never sent;
+  // only a hash of the visible name is kept, never the name itself.
+  const nameBands = new Map();
+  const MAX_NAME_BANDS = 200;
 
   let corner = null;
   let panelOpen = false;
@@ -174,6 +184,26 @@
   function threadIdFromHref(href) {
     const m = String(href || '').match(/\/messaging\/thread\/([^/?#]+)/);
     return m ? m[1] : null;
+  }
+
+  /** Order-insensitive key for a set of display names ("A, B" == "B, A"). */
+  function namesKey(names) {
+    const set = new Set();
+    for (const n of names) {
+      for (const part of String(n).split(/\s*[,，、]\s*|\s+and\s+/)) {
+        const t = part.replace(/\s+/g, ' ').trim().toLowerCase();
+        if (t) set.add(t);
+      }
+    }
+    return set.size ? hash(Array.from(set).sort().join('\u0000')) : null;
+  }
+
+  function senderKey(unit) {
+    if (unit.kind === 'page') return null;
+    const names = [];
+    unit.root.querySelectorAll(SEL.event + '.' + SEL.inboundClass + ' ' + SEL.senderName)
+      .forEach((n) => names.push(n.textContent));
+    return namesKey(names);
   }
 
   function summary(result) {
@@ -332,6 +362,11 @@
       unitCache.set(u.uid, { key, result });
     }
     if (u.threadId) sessionBands.set(u.threadId, { band: result.band, why: summary(result) });
+    const nk = senderKey(u);
+    if (nk) {
+      if (nameBands.size >= MAX_NAME_BANDS && !nameBands.has(nk)) nameBands.clear();
+      nameBands.set(nk, { band: result.band, why: summary(result) });
+    }
     return Object.assign({}, u, { key, result, scope, photo: findPhoto(u, scope) });
   }
 
@@ -487,17 +522,26 @@
         const open = scanned.find((u) => u.kind === 'thread');
         if (open) full = { band: open.result.band, why: summary(open.result) };
       }
+      if (!full) {
+        // A conversation scored earlier in this tab, matched by the row's names.
+        const nm = item.querySelector(SEL.convoNames);
+        const nk = nm && namesKey([nm.textContent]);
+        full = nk && nameBands.get(nk);
+      }
+      let preview = null;
+      if (snip) {
+        const t = snippetText(snip);
+        // "You: …" previews are the user's own words — never score them.
+        if (t && !/^you\s*:/i.test(t)) preview = A.analyze(t, [], { overrides });
+      }
       if (full) {
         band = full.band;
         why = 'opened conversation: ' + full.why;
-      } else if (snip) {
-        const t = snippetText(snip);
-        // "You: …" previews are the user's own words — never score them.
-        if (t && !/^you\s*:/i.test(t)) {
-          const r = A.analyze(t, [], { overrides });
-          band = r.band;
-          why = 'message preview: ' + summary(r);
-        }
+      }
+      // A newer preview can only raise the dot (new messages since it was opened).
+      if (preview && (!full || BAND_RANK[preview.band] > BAND_RANK[band])) {
+        band = preview.band;
+        why = 'message preview: ' + summary(preview);
       }
       let dot = item.querySelector('.hrsc-listdot');
       if (band === 'low') { if (dot) dot.remove(); continue; }

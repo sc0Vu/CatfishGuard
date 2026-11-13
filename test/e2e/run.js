@@ -237,6 +237,25 @@ async function main() {
       assert.match(title, /some risk signals \(message preview: /);
     });
 
+    await check('a scored conversation keeps its dot after you leave it (matched by sender name, memory only)', async () => {
+      const p = await openPage('https://www.linkedin.com/messaging/thread/2-abc/');
+      // Live markup carries the sender name in each message group (verified, 2026-11).
+      await p.evaluate(`(() => { const s = document.createElement('span'); s.className = 'msg-s-message-group__name';
+        s.textContent = ' Jane   (fixture) '; document.querySelector('.msg-s-event-listitem--other').prepend(s); })()`);
+      await p.waitFor(`(() => { const d = ${dots}; return d.startsWith('hrsc-listdot-high') ? d : null; })()`);
+      // Leave the conversation: no open row, no message list. Jane's preview alone scores low.
+      await p.evaluate(`(() => {
+        document.querySelector('.msg-conversations-container__convo-item-link--active')
+          .classList.remove('msg-conversations-container__convo-item-link--active');
+        document.querySelector('.msg-s-message-list-container').remove();
+      })()`);
+      const d = await p.waitFor(`(() => document.querySelector('.msg-s-message-list') ? null :
+        document.querySelector('.hrsc-root .hrsc-badge') && ${dots})()`);
+      assert.equal(d, 'hrsc-listdot-high,hrsc-listdot-caution,-,-,-');
+      assert.match(await p.evaluate(`document.querySelector('.hrsc-listdot').title`), /opened conversation/);
+      await p.close();
+    });
+
     await check('live-structure zh thread: inbound-only, CJK terms, fake-interview pattern -> 38 (caution)', async () => {
       const zh = await openPage('https://www.linkedin.com/messaging/thread/2-zh/');
       const t = await zh.waitFor(badge);
