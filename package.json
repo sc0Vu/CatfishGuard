@@ -7,6 +7,7 @@
     "test": "node --test test/*.test.js",
     "test:e2e": "node test/e2e/run.js",
     "icons": "python3 tools/mk_icons.py",
-    "psl": "python3 tools/mk_psl.py"
+    "psl": "python3 tools/mk_psl.py",
+    "package": "python3 tools/package.py"
   }
 }
