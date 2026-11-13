@@ -61,7 +61,8 @@ function startServer() {
         return res.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
       }
       if (host === 'www.linkedin.com') {
-        const name = req.url.startsWith('/messaging/thread/2-zh') ? 'messaging-zh.html'
+        const name = req.url.startsWith('/messaging/thread/demo') ? 'demo.html'
+          : req.url.startsWith('/messaging/thread/2-zh') ? 'messaging-zh.html'
           : req.url.startsWith('/messaging/') ? 'messaging.html'
           : req.url.startsWith('/in/') ? 'profile-legit.html'
           : req.url.startsWith('/feed/zh-popup') || req.url.startsWith('/feed/zh-shadow') ? 'feed-overlay-zh.html'
@@ -596,6 +597,26 @@ async function main() {
       await p.shot('6-feed-shadow-zh');
       await p.close();
     });
+
+    if (SHOT_DIR) {
+      // Store / website screenshots: 1280x800 (the Web Store size), fictional demo page.
+      await check('store screenshots (demo page, 1280x800)', async () => {
+        const p = await openPage('https://www.linkedin.com/messaging/thread/demo/');
+        await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false }, p.sessionId);
+        await p.waitFor(`(() => { const b = document.querySelector('.hrsc-banner-root'); return b && b.innerText; })()`);
+        await p.waitFor(`document.querySelectorAll('.hrsc-listdot').length >= 2`);
+        await sleep(400);
+        await p.shot('store-1-banner-and-dots');
+        await p.evaluate(`document.querySelector('.hrsc-badge').click()`);
+        await p.waitFor(panelText);
+        await sleep(300);
+        await p.shot('store-2-reasons-panel');
+        await p.evaluate(`document.querySelector('.hrsc-flagged').scrollIntoView({ block: 'end' })`);
+        await sleep(300);
+        await p.shot('store-3-flagged-list');
+        await p.close();
+      });
+    }
 
     await check('feed is not scored; an open message overlay is, with its own banner', async () => {
       const feed = await openPage('https://www.linkedin.com/feed/');
