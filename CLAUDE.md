@@ -154,7 +154,12 @@ settings, and roadmap #1:
   markup as the full thread; expanded state is the header button
   `.msg-overlay-conversation-bubble__expand-btn[aria-expanded]`, which is what
   minimise detection keys on (the `--is-minimized` class is kept as an unverified
-  fallback). Popups without a message list are not scored.
+  fallback). Popups without a message list are not scored. **Full chat popup
+  on the feed verified (2026-11):** `test/e2e/fixtures/feed-overlay-zh.html`
+  is an anonymised copy (sender names on every event; the user's own links
+  unroll into `update-components-article` cards, which stay out of the score).
+  The bubble also carries `data-msg-overlay-conversation-bubble-is-minimized`
+  — a candidate minimise signal if the expand button ever changes.
 - **List dots survive leaving a conversation:** rows have no thread id, so a
   scored conversation is matched back to its row by sender display name
   (`.msg-s-message-group__name` in `--other` events ↔ `…participant-names` on
