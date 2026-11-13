@@ -62,6 +62,11 @@
     // a scored conversation is matched back to its row by these names.
     convoNames: '.msg-conversation-listitem__participant-names, .msg-conversation-card__participant-names',
     senderName: '.msg-s-message-group__name',
+    // On the feed (live, 2026-11) LinkedIn renders its chat popups and the
+    // messaging list inside the shadow root of this host, so document-level
+    // queries never see them. Direct children of <body> with a shadow root are
+    // also searched, in case the host is renamed.
+    shadowHosts: '#interop-outlet',
     eventPhoto: 'img.msg-s-event-listitem__profile-picture', // inside each event (live, 2026-11)
     convoLink: 'a[href*="/messaging/thread/"]',
     threadProfileLink: '.msg-thread__link-to-profile',
@@ -69,7 +74,7 @@
     messagingFallback: ['.msg-thread', '.scaffold-layout__detail', 'main'],
   };
   const WATCHED_CLASSES = [SEL.inboundClass, SEL.overlayMinClass];
-  const OWN_UI = '.hrsc-root, .hrsc-banner-root, .hrsc-listdot';
+  const OWN_UI = '.hrsc-root, .hrsc-banner-root, .hrsc-listdot, .hrsc-style';
   // Never scan the user's own composer/draft, form fields, or our own UI.
   const EXCLUDE = [
     '[contenteditable="true"]', '[contenteditable=""]', 'textarea', 'input', 'select',
@@ -177,12 +182,93 @@
     return e;
   }
 
+  // -------------------------------------------------------------------------
+  // document + LinkedIn's shadow roots
+  // -------------------------------------------------------------------------
+  function openShadow(el) {
+    try {
+      if (chrome.dom && chrome.dom.openOrClosedShadowRoot) return chrome.dom.openOrClosedShadowRoot(el) || null;
+    } catch (_) { /* fall through */ }
+    return el.shadowRoot || null;
+  }
+
+  function shadowHosts() {
+    const hosts = new Set(document.querySelectorAll(SEL.shadowHosts));
+    if (document.body) for (const c of document.body.children) if (openShadow(c)) hosts.add(c);
+    return Array.from(hosts);
+  }
+
+  /** The document first, then every shadow root we can open. */
+  function roots() {
+    const out = [document];
+    for (const h of shadowHosts()) { const r = openShadow(h); if (r) out.push(r); }
+    return out;
+  }
+
+  function qsa(sel) {
+    const out = [];
+    for (const r of roots()) r.querySelectorAll(sel).forEach((e) => out.push(e));
+    return out;
+  }
+
+  function qs(sel) {
+    for (const r of roots()) { const e = r.querySelector(sel); if (e) return e; }
+    return null;
+  }
+
   function firstOf(selectors) {
     for (const s of selectors) {
-      const e = document.querySelector(s);
+      const e = qs(s);
       if (e) return e;
     }
     return null;
+  }
+
+  // Our stylesheet is injected into the document only; UI placed inside a
+  // shadow root (banner in a chat popup, list dots) needs its own copy.
+  let cssPromise = null;
+  const rootSheets = new WeakMap(); // shadow root -> CSSStyleSheet | <style>
+  const observedRoots = new WeakSet();
+
+  function styleRoot(root) {
+    const have = rootSheets.get(root);
+    if (have) {
+      // LinkedIn may reassign adoptedStyleSheets; put ours back if it went
+      if (have instanceof CSSStyleSheet && !root.adoptedStyleSheets.includes(have)) {
+        try { root.adoptedStyleSheets = root.adoptedStyleSheets.concat([have]); } catch (_) { /* ignore */ }
+      }
+      return;
+    }
+    rootSheets.set(root, true);
+    if (!cssPromise) cssPromise = send({ type: 'cfg:css' }).then((r) => (r && typeof r.css === 'string' ? r.css : ''));
+    cssPromise.then((css) => {
+      if (!css) { rootSheets.delete(root); cssPromise = null; return; }
+      try {
+        const sheet = new CSSStyleSheet();
+        sheet.replaceSync(css);
+        root.adoptedStyleSheets = root.adoptedStyleSheets.concat([sheet]);
+        rootSheets.set(root, sheet);
+      } catch (_) {
+        try {
+          const st = document.createElement('style');
+          st.className = 'hrsc-style';
+          st.textContent = css;
+          root.appendChild(st);
+          rootSheets.set(root, st);
+        } catch (_e) { rootSheets.delete(root); }
+      }
+    });
+  }
+
+  /** Watch and style every shadow root we can reach (hosts can appear late). */
+  function attachRoots() {
+    for (const r of roots()) {
+      if (r === document) continue;
+      styleRoot(r);
+      if (observer && !observedRoots.has(r)) {
+        try { observer.observe(r, OBSERVE_OPTS); observedRoots.add(r); } catch (_) { /* ignore */ }
+      }
+    }
   }
 
   function pageContext() {
@@ -258,20 +344,20 @@
     const page = (root) => root && out.push({ uid: 'page:' + location.pathname, kind: 'page', root });
 
     if (ctx === 'messaging') {
-      const list = document.querySelector(SEL.threadList);
+      const list = qs(SEL.threadList);
       const threadId = threadIdFromHref(location.pathname);
       // No id in the URL: key the unit by the other party's profile link so an
       // in-memory dismissal can't leak onto the next thread. Memory only.
-      const prof = threadId ? null : document.querySelector(SEL.threadProfileLink);
+      const prof = threadId ? null : qs(SEL.threadProfileLink);
       const key = threadId || (prof ? 'p' + hash(prof.getAttribute('href') || '') : 'current');
       if (list) out.push({ uid: 'thread:' + key, kind: 'thread', root: list, host: bannerAnchor(list), threadId });
       else page(firstOf(SEL.messagingFallback));
     } else if (ctx === 'profile') {
-      page(document.querySelector('main'));
+      page(qs('main'));
     } else if (ctx === 'job') {
       page(firstOf(SEL.jobRoots));
     }
-    document.querySelectorAll(SEL.overlay).forEach((b) => {
+    qsa(SEL.overlay).forEach((b) => {
       if (overlayMinimized(b)) return;
       // Only score a popup that shows a conversation; without a message list
       // all we'd read is header chrome ("Minimize your conversation with …").
@@ -428,6 +514,7 @@
     try {
       if (!enabled) { teardownUI(); scanned = []; return null; }
       if (force) { unitCache.clear(); hitCache.clear(); }
+      attachRoots();
       const { ctx, units } = findUnits();
       lastContext = ctx;
       const next = [];
@@ -463,10 +550,10 @@
     }
     const out = [];
     if (ctx === 'messaging') {
-      const rows = document.querySelectorAll(SEL.convoItem);
+      const rows = qsa(SEL.convoItem);
       if (!rows.length) out.push('the conversation list');
-      else if (!document.querySelector(SEL.convoNames)) out.push('names in the conversation list');
-      if (threadIdFromHref(location.pathname) && !document.querySelector(SEL.threadList)) {
+      else if (!qs(SEL.convoNames)) out.push('names in the conversation list');
+      if (threadIdFromHref(location.pathname) && !qs(SEL.threadList)) {
         out.push('the messages of the open conversation');
       }
     }
@@ -568,7 +655,7 @@
       if (b) b.replaceWith(nb); else u.host.parentNode.insertBefore(nb, u.host);
       live.add(nb);
     }
-    document.querySelectorAll('.hrsc-banner-root').forEach((b) => { if (!live.has(b)) b.remove(); });
+    qsa('.hrsc-banner-root').forEach((b) => { if (!live.has(b)) b.remove(); });
   }
 
   // -------------------------------------------------------------------------
@@ -584,7 +671,7 @@
   }
 
   function renderListDots() {
-    const items = document.querySelectorAll(SEL.convoItem);
+    const items = qsa(SEL.convoItem);
     for (let i = 0; i < items.length && i < MAX_LIST_ITEMS; i++) {
       const item = items[i];
       const snip = item.querySelector(SEL.convoSnippet);
@@ -646,7 +733,7 @@
 
   function teardownUI() {
     removeCorner();
-    document.querySelectorAll('.hrsc-banner-root, .hrsc-listdot').forEach((n) => n.remove());
+    qsa('.hrsc-banner-root, .hrsc-listdot').forEach((n) => n.remove());
   }
 
   function renderCorner() {
@@ -778,7 +865,7 @@
 
   /** Find the list row for a flagged conversation by its displayed names. */
   function rowForKey(key) {
-    for (const item of document.querySelectorAll(SEL.convoItem)) {
+    for (const item of qsa(SEL.convoItem)) {
       const nm = item.querySelector(SEL.convoNames);
       if (nm && namesKey([cleanName(nm.textContent)]) === key) return item;
     }
@@ -825,6 +912,10 @@
   // -------------------------------------------------------------------------
   let observer = null;
   let navTimer = null;
+  const OBSERVE_OPTS = {
+    childList: true, subtree: true, characterData: true,
+    attributes: true, attributeFilter: ['class', 'aria-expanded'], attributeOldValue: true,
+  };
 
   function shutdown() {
     alive = false;
@@ -905,10 +996,8 @@
   } catch (_) { /* context gone */ }
 
   observer = new MutationObserver(onMutations);
-  observer.observe(document.documentElement, {
-    childList: true, subtree: true, characterData: true,
-    attributes: true, attributeFilter: ['class', 'aria-expanded'], attributeOldValue: true,
-  });
+  observer.observe(document.documentElement, OBSERVE_OPTS);
+  attachRoots();
 
   // LinkedIn is an SPA: catch route changes the observer might not.
   navTimer = setInterval(() => {

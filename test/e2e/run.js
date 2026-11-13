@@ -62,7 +62,7 @@ function startServer() {
         const name = req.url.startsWith('/messaging/thread/2-zh') ? 'messaging-zh.html'
           : req.url.startsWith('/messaging/') ? 'messaging.html'
           : req.url.startsWith('/in/') ? 'profile-legit.html'
-          : req.url.startsWith('/feed/zh-popup') ? 'feed-overlay-zh.html'
+          : req.url.startsWith('/feed/zh-popup') || req.url.startsWith('/feed/zh-shadow') ? 'feed-overlay-zh.html'
             : req.url.startsWith('/feed') ? 'feed.html' : null;
         if (name) {
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'set-cookie': 'li_at=SECRET; Path=/; Secure' });
@@ -568,6 +568,30 @@ async function main() {
       await sleep(5600);
       assert.equal(await p.evaluate(`!!document.querySelector('.hrsc-warnmark')`), false, 'false layout alarm on live markup');
       await p.shot('5-feed-popup-zh');
+      await p.close();
+    });
+
+    await check('feed chat popup inside LinkedIn\'s shadow root (#interop-outlet) is found, scored and styled', async () => {
+      const p = await openPage('https://www.linkedin.com/feed/zh-shadow/');
+      const t = await p.waitFor(`(() => { const t = ${badge}; return t && /· 53$/.test(t.trim()) ? t : null; })()`);
+      assert.match(t, /Some risk signals/);
+      const root = `document.getElementById('interop-outlet').shadowRoot`;
+      // banner sits inside the popup, inside the shadow root, and our stylesheet applies there
+      const b = await p.waitFor(`(() => { const b = ${root}.querySelector('.msg-overlay-conversation-bubble .hrsc-banner-root'); return b && b.innerText; })()`);
+      assert.match(b, /Some risk signals in this conversation/);
+      const styled = await p.waitFor(`(() => {
+        const b = ${root}.querySelector('.hrsc-banner');
+        const d = ${root}.querySelector('.hrsc-listdot');
+        if (!b || !d) return null;
+        const cs = getComputedStyle(d);
+        return cs.width === '12px' && cs.borderRadius === '50%' && getComputedStyle(b).borderRadius !== '0px' ? 'yes' : null;
+      })()`);
+      assert.equal(styled, 'yes', 'our CSS must apply inside the shadow root');
+      const dot = await p.evaluate(`(() => { const d = ${root}.querySelector('.hrsc-listdot'); return d.className + ' | ' + d.title; })()`);
+      assert.match(dot, /hrsc-listdot-caution \| .*opened conversation/);
+      await sleep(5600);
+      assert.equal(await p.evaluate(`!!document.querySelector('.hrsc-warnmark')`), false);
+      await p.shot('6-feed-shadow-zh');
       await p.close();
     });
 

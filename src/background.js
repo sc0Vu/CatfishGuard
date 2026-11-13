@@ -234,12 +234,22 @@ function refresh(force) {
 // ---------------------------------------------------------------------------
 // messaging
 // ---------------------------------------------------------------------------
+let cssText = null;
+
 async function handle(msg) {
   switch (msg && msg.type) {
     case 'cfg:match': {
       refresh(false); // stale-while-revalidate; don't block the answer
       const m = await getMatcher();
       return { hits: m.match(msg.indicators) };
+    }
+    case 'cfg:css': {
+      // The content script styles its UI inside LinkedIn's shadow roots (the feed's
+      // chat popups live in one) and needs our stylesheet as text. Read it here,
+      // from the extension's own origin, instead of listing it as a
+      // web_accessible_resource, which pages could probe to detect the extension.
+      if (!cssText) cssText = await (await fetch(chrome.runtime.getURL('src/styles.css'))).text();
+      return { css: cssText };
     }
     case 'cfg:getState': {
       const { blocklistMeta } = await storageGet('blocklistMeta');
