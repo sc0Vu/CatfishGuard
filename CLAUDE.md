@@ -160,6 +160,17 @@ settings, and roadmap #1:
   unroll into `update-components-article` cards, which stay out of the score).
   The bubble also carries `data-msg-overlay-conversation-bubble-is-minimized`
   — a candidate minimise signal if the expand button ever changes.
+- **Feed chat popups live in a shadow root (verified live 2026-11):** on
+  `/feed` LinkedIn renders the chat popups and messaging list inside the open
+  shadow root of `div#interop-outlet` (a hidden `/preload/` iframe holds a
+  second copy; it is ignored, content script stays top-frame only). All
+  LinkedIn queries go through `qs`/`qsa` over `roots()` (document + shadow
+  roots of `SEL.shadowHosts` and of `<body>`'s direct children, opened via
+  `chrome.dom.openOrClosedShadowRoot`). Each root is observed and gets our
+  stylesheet as an adopted sheet; the CSS text comes from the service worker
+  (`cfg:css`), **not** a `web_accessible_resources` entry, which pages could
+  probe to detect the extension. Test: `/feed/zh-shadow` mode of
+  `feed-overlay-zh.html`.
 - **List dots survive leaving a conversation:** rows have no thread id, so a
   scored conversation is matched back to its row by sender display name
   (`.msg-s-message-group__name` in `--other` events ↔ `…participant-names` on
