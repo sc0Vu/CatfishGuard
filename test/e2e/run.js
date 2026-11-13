@@ -51,7 +51,9 @@ function startServer() {
       requests.push({ host: req.headers.host, method: req.method, url: req.url, headers: req.headers, body });
       const host = (req.headers.host || '').split(':')[0];
       if (host === 'raw.githubusercontent.com' && req.url === LIST_PATH) {
-        res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+        // like the real raw.githubusercontent.com: public, CORS-readable by anyone.
+        // The extension has no host permission, so without this header the fetch fails.
+        res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'access-control-allow-origin': '*' });
         return res.end(blocklistBody);
       }
       if (host === 'media.licdn.com') { // profile photos the page itself loads

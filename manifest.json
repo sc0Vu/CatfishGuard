@@ -5,10 +5,6 @@
   "description": "Flags recruiter/job-scam and phishing risk signals on LinkedIn, and shows exactly why. Runs locally.",
   "minimum_chrome_version": "120",
   "permissions": ["storage"],
-  "host_permissions": [
-    "https://raw.githubusercontent.com/*",
-    "https://gist.githubusercontent.com/*"
-  ],
   "background": {
     "service_worker": "src/background.js"
   },

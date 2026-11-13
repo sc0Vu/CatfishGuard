@@ -17,7 +17,8 @@ appear on the page you are viewing.
   results are never sent anywhere.
 - The **only** network request the extension makes is a `GET` to the **public
   blocklist URL you configure** in the popup (restricted to
-  `raw.githubusercontent.com` or `gist.githubusercontent.com`). No URL is set by
+  `raw.githubusercontent.com` or `gist.githubusercontent.com`; these serve
+  public files to anyone, so no extra permission is needed). No URL is set by
   default, so by default the extension makes **no network requests at all**.
   The request carries no page content, no cookies and no referrer. Like any web
   request it unavoidably exposes standard request metadata (such as your IP
@@ -62,7 +63,6 @@ appear on the page you are viewing.
 | Permission | Why |
 |---|---|
 | `storage` | Save your settings, custom rules, dismissed-banner hashes and the blocklist cache on your device. |
-| Host access to `raw.githubusercontent.com`, `gist.githubusercontent.com` | Download the public blocklist you chose. |
 | Content script on `*.linkedin.com` | Read the page you are viewing so it can be scored locally. |
 
 ## Changes

@@ -19,7 +19,10 @@ const TTL_MS = 6 * 60 * 60 * 1000;
 const FAIL_BACKOFF_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 20000;
 const MAX_BYTES = 16 * 1024 * 1024;
-const ALLOWED_HOSTS = ['raw.githubusercontent.com', 'gist.githubusercontent.com']; // = host_permissions
+// The only hosts a blocklist may come from. No host permission is needed: both
+// serve public files with `Access-Control-Allow-Origin: *`, so the worker reads
+// them with a plain credential-less CORS GET (verified 2026-11).
+const ALLOWED_HOSTS = ['raw.githubusercontent.com', 'gist.githubusercontent.com'];
 const PRESETS = Object.freeze([
   {
     id: 'metamask',
