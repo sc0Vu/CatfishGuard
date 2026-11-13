@@ -155,13 +155,29 @@ settings, and roadmap #1:
   `.msg-overlay-conversation-bubble__expand-btn[aria-expanded]`, which is what
   minimise detection keys on (the `--is-minimized` class is kept as an unverified
   fallback). Popups without a message list are not scored.
+- **List dots survive leaving a conversation:** rows have no thread id, so a
+  scored conversation is matched back to its row by sender display name
+  (`.msg-s-message-group__name` in `--other` events ↔ `…participant-names` on
+  the row, verified live 2026-11). Held as a *hash* in memory only; a worse
+  newer preview can raise a dot, never lower it.
+- **"Conversations with risk signals in this tab"** list in the corner panel
+  (opened conversations + caution/high previews). Memory only, shows the
+  display name LinkedIn already shows, copy is "risk signals", never stored
+  (invariant 2). "Show in list" only scrolls; it never reorders LinkedIn's list.
+- **Layout-health check** (`checkHealth` in `content.js`): after a 5 s
+  post-navigation grace, missing conversation list / row names / message list /
+  message events / sender names → "!" on the badge, a warning box in the panel
+  and the popup, and the corner shows even when nothing was scored. Purpose: a
+  LinkedIn redesign must read as "can't read this page", never as "no risk".
 - Keyword rules cover **English + Chinese (simplified/traditional)**. Term
   boundaries are CJK-aware: Han/Kana/Thai characters never act as a boundary
   barrier.
-- **Known gap (live example):** the GitHub-sourced "fake interview" pattern (web3
-  role, free scheduling link, "the lead is waiting in the meeting") scores
-  *low*. It isn't keyword-shaped. The fix belongs in roadmap #2 (claimed employer
-  vs link domain) and possibly a dev-lure category; see the zh analyzer test.
+- **Reference case (live, 2026-11):** the GitHub-sourced "fake interview"
+  pattern (web3 role, free scheduling link, "the lead is waiting in the
+  meeting") scored 13 on keywords alone; devlure + the pattern bonus lift it to
+  38 (caution), and with the claimed brand in `BRANDS` (peaq, added from this
+  report) to 53. It stays below *high*: no payment/credential ask. See the zh
+  analyzer tests.
 
 ## Roadmap (build in this order; each is additive)
 1. ~~Thread banner + conversation-list dots + sender-scoped scanning~~ — built

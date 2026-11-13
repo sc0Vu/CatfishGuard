@@ -44,7 +44,11 @@ appear on the page you are viewing.
   never synced or transmitted. **Export** writes them to a file on your
   computer only when you click it.
 - Scores exist only in the page's memory and disappear when you close or reload
-  it.
+  it. That includes the corner panel's list of conversations with risk signals
+  in the current tab: it shows the display name LinkedIn already shows you, so
+  you can find the conversation again, but it is never saved, synced or
+  transmitted. To keep a conversation's list dot after you leave it, only a
+  short hash of the sender's display name is held, also in memory only.
 
 ## What it does not do
 - No analytics, telemetry, tracking, advertising, or profiling.

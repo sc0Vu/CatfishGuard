@@ -8,9 +8,14 @@ shows what it found, scaled to the risk level:
 
 - **a thin banner above the open conversation** (caution/high only). It can be
   dismissed per conversation and comes back only if things escalate;
-- **dots in the conversation list** for triage;
+- **dots in the conversation list** for triage. A conversation you opened
+  keeps its dot after you leave it (until the tab is reloaded);
 - **a corner badge** that's always available. Click it, or the banner's
-  "Why?", to see every signal that fired.
+  "Why?", to see every signal that fired, plus the conversations with risk
+  signals seen in this tab;
+- **a layout warning** (a "!" on the badge) when the parts of LinkedIn's page
+  it reads can't be found, so a LinkedIn redesign shows up as "can't read this
+  page" instead of a misleading silence.
 
 The panel can also offer a **reverse image search** of the other person's
 profile photo (Google Lens / TinEye). These are plain links: nothing is sent
@@ -179,7 +184,9 @@ real MetaMask list. Set `CFG_SHOTS=dir` to save e2e screenshots.
   the meeting"). The planned domain/impersonation check is aimed at it. Fallbacks: `<main>`
   for the page, and the whole thread when senders can't be told apart.
 - List dots for unopened conversations score only the short preview, so they are
-  a triage hint, not a full check.
+  a triage hint, not a full check. Opened conversations are matched back to
+  their row by the sender's display name (rows carry no conversation id), so two
+  people with the same name share a dot.
 - The real control is behavioural: verify the recruiter through the company's
   own site, and never enter keys, codes, logins or ID documents on a page reached
   from a message.
