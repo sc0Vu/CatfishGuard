@@ -30,6 +30,10 @@
   const MAX_LINKS = 500;
   const MAX_LIST_ITEMS = 100;
   const MAX_DISMISSED = 500;
+  // Give LinkedIn time to render after a navigation before calling a missing
+  // selector a layout change.
+  const HEALTH_GRACE_MS = 5000;
+  const MAX_FLAGGED = 50;
 
   // LinkedIn selectors in one place — when LinkedIn changes its DOM, fix here.
   const SEL = {
@@ -77,6 +81,7 @@
 
   const BAND_RANK = { low: 0, caution: 1, high: 2 };
   const BAND_TEXT = { high: 'High risk signals', caution: 'Some risk signals', low: 'Few risk signals' };
+  const BAND_SHORT = { high: 'High', caution: 'Caution', low: 'Low' };
   const SCOPE_TEXT = {
     inbound: 'Scored: messages from the other person only.',
     all: 'Scored: the whole conversation (could not tell who sent which message).',
@@ -107,6 +112,13 @@
   // only a hash of the visible name is kept, never the name itself.
   const nameBands = new Map();
   const MAX_NAME_BANDS = 200;
+  // "Conversations with risk signals in this tab" (corner panel). Memory only:
+  // gone on reload, never stored or sent. Holds the display name LinkedIn shows
+  // so the user can find the conversation again; never labels the person.
+  const flagged = new Map(); // namesKey -> {name, band, score, why, source}
+  let health = [];           // parts of LinkedIn's page we expected but could not find
+  let healthTimer = null;
+  let navAt = Date.now();
 
   let corner = null;
   let panelOpen = false;
@@ -198,12 +210,38 @@
     return set.size ? hash(Array.from(set).sort().join('\u0000')) : null;
   }
 
-  function senderKey(unit) {
+  const cleanName = (t) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+
+  /** {key, name} of the other people in a conversation unit, from inbound message groups. */
+  function senderInfo(unit) {
     if (unit.kind === 'page') return null;
     const names = [];
     unit.root.querySelectorAll(SEL.event + '.' + SEL.inboundClass + ' ' + SEL.senderName)
-      .forEach((n) => names.push(n.textContent));
-    return namesKey(names);
+      .forEach((n) => { const t = cleanName(n.textContent); if (t && !names.includes(t)) names.push(t); });
+    const key = namesKey(names);
+    return key ? { key, name: names.join(', ') } : null;
+  }
+
+  /** Track a conversation with risk signals. A full conversation score is
+   *  authoritative; a list preview only adds or raises an entry. */
+  function noteFlag(key, name, band, score, why, source) {
+    const cur = flagged.get(key);
+    if (band === 'low') {
+      if (cur && (source === 'conversation' || cur.source === 'preview')) flagged.delete(key);
+      return;
+    }
+    if (cur && cur.source === 'conversation' && source === 'preview') {
+      // keep the conversation entry; a worse newer preview only raises it
+      if (BAND_RANK[band] > BAND_RANK[cur.band]) Object.assign(cur, { band, score, why: 'newest message: ' + why });
+      return;
+    }
+    if (!cur && flagged.size >= MAX_FLAGGED) {
+      // drop the mildest entry to make room
+      let drop = null;
+      for (const [k, v] of flagged) if (!drop || BAND_RANK[v.band] < BAND_RANK[drop[1].band]) drop = [k, v];
+      if (drop && BAND_RANK[drop[1].band] <= BAND_RANK[band]) flagged.delete(drop[0]); else return;
+    }
+    flagged.set(key, { name, band, score, why, source });
   }
 
   function summary(result) {
@@ -362,10 +400,11 @@
       unitCache.set(u.uid, { key, result });
     }
     if (u.threadId) sessionBands.set(u.threadId, { band: result.band, why: summary(result) });
-    const nk = senderKey(u);
-    if (nk) {
-      if (nameBands.size >= MAX_NAME_BANDS && !nameBands.has(nk)) nameBands.clear();
-      nameBands.set(nk, { band: result.band, why: summary(result) });
+    const who = senderInfo(u);
+    if (who) {
+      if (nameBands.size >= MAX_NAME_BANDS && !nameBands.has(who.key)) nameBands.clear();
+      nameBands.set(who.key, { band: result.band, why: summary(result) });
+      noteFlag(who.key, who.name, result.band, result.score, summary(result), 'conversation');
     }
     return Object.assign({}, u, { key, result, scope, photo: findPhoto(u, scope) });
   }
@@ -397,9 +436,10 @@
         if (r) next.push(r);
       }
       scanned = next;
+      health = checkHealth(ctx, scanned);
       renderBanners();
-      renderCorner();
       renderListDots();
+      renderCorner();
       return worst();
     } catch (_) {
       return worst(); // never throw into the page
@@ -407,6 +447,41 @@
       scanning = false;
       if (rescanQueued) { rescanQueued = false; scheduleScan(); }
     }
+  }
+
+  /**
+   * What we expected to find on LinkedIn's page but could not. LinkedIn changes
+   * its markup without notice; when that breaks a selector the extension would
+   * otherwise go quiet, which looks exactly like "no risk signals". Say so.
+   */
+  function checkHealth(ctx, units) {
+    const wait = HEALTH_GRACE_MS - (Date.now() - navAt);
+    if (wait > 0) {
+      // too soon after a navigation to judge; look again once it has settled
+      if (!healthTimer) healthTimer = setTimeout(() => { healthTimer = null; scheduleScan(); }, wait + 100);
+      return [];
+    }
+    const out = [];
+    if (ctx === 'messaging') {
+      const rows = document.querySelectorAll(SEL.convoItem);
+      if (!rows.length) out.push('the conversation list');
+      else if (!document.querySelector(SEL.convoNames)) out.push('names in the conversation list');
+      if (threadIdFromHref(location.pathname) && !document.querySelector(SEL.threadList)) {
+        out.push('the messages of the open conversation');
+      }
+    }
+    for (const u of units) {
+      if (u.kind === 'page') continue;
+      const events = u.root.querySelectorAll(SEL.event);
+      if (!events.length) {
+        // an empty new chat has no messages; text without message markup is the break
+        if (u.root.textContent.trim().length > 40) out.push('individual messages in a conversation');
+        continue;
+      }
+      const inbound = u.root.querySelectorAll(SEL.event + '.' + SEL.inboundClass);
+      if (inbound.length && !u.root.querySelector(SEL.senderName)) out.push('sender names in a conversation');
+    }
+    return Array.from(new Set(out));
   }
 
   function scheduleScan() {
@@ -522,12 +597,11 @@
         const open = scanned.find((u) => u.kind === 'thread');
         if (open) full = { band: open.result.band, why: summary(open.result) };
       }
-      if (!full) {
-        // A conversation scored earlier in this tab, matched by the row's names.
-        const nm = item.querySelector(SEL.convoNames);
-        const nk = nm && namesKey([nm.textContent]);
-        full = nk && nameBands.get(nk);
-      }
+      const nm = item.querySelector(SEL.convoNames);
+      const rowName = nm ? cleanName(nm.textContent) : '';
+      const nk = rowName ? namesKey([rowName]) : null;
+      // A conversation scored earlier in this tab, matched by the row's names.
+      if (!full && nk) full = nameBands.get(nk);
       let preview = null;
       if (snip) {
         const t = snippetText(snip);
@@ -543,6 +617,7 @@
         band = preview.band;
         why = 'message preview: ' + summary(preview);
       }
+      if (nk && preview) noteFlag(nk, rowName, preview.band, preview.score, summary(preview), 'preview');
       let dot = item.querySelector('.hrsc-listdot');
       if (band === 'low') { if (dot) dot.remove(); continue; }
       const sig = band + '|' + why;
@@ -576,11 +651,15 @@
 
   function renderCorner() {
     const w = worst();
-    if (!w) { removeCorner(); panelUid = null; return; }
-    if (cornerDismissedKey && cornerDismissedKey === w.key && !panelOpen) { removeCorner(); return; }
-    if (cornerDismissedKey && cornerDismissedKey !== w.key) cornerDismissedKey = null;
-    const shown = (panelUid && scanned.find((u) => u.uid === panelUid)) || w;
-    const r = shown.result;
+    // A layout problem keeps the corner up even when nothing could be scored:
+    // silence would look exactly like "no risk signals".
+    const cKey = w ? w.key + (health.length ? '|h' : '') : (health.length ? 'health:' + health.join('|') : null);
+    if (!cKey) { removeCorner(); panelUid = null; return; }
+    if (cornerDismissedKey && cornerDismissedKey === cKey && !panelOpen) { removeCorner(); return; }
+    if (cornerDismissedKey && cornerDismissedKey !== cKey) cornerDismissedKey = null;
+    const shown = w && ((panelUid && scanned.find((u) => u.uid === panelUid)) || w);
+    const r = shown ? shown.result : null;
+    const band = w ? w.result.band : 'low';
 
     if (!corner || !corner.isConnected) {
       corner = el('div', 'hrsc-root');
@@ -589,14 +668,18 @@
       (document.body || document.documentElement).appendChild(corner);
     }
     corner.textContent = '';
-    corner.dataset.band = w.result.band;
+    corner.dataset.band = band;
 
-    const badge = el('button', 'hrsc-badge hrsc-band-' + w.result.band);
+    const badge = el('button', 'hrsc-badge hrsc-band-' + band);
     badge.type = 'button';
     badge.setAttribute('aria-expanded', String(panelOpen));
-    badge.title = 'CatfishGuard: click to see which signals fired';
+    badge.title = health.length
+      ? 'CatfishGuard: LinkedIn\u2019s page layout may have changed; click for details'
+      : 'CatfishGuard: click to see which signals fired';
     badge.appendChild(el('span', 'hrsc-dot'));
-    badge.appendChild(el('span', 'hrsc-badge-text', BAND_TEXT[w.result.band] + ' · ' + w.result.score));
+    badge.appendChild(el('span', 'hrsc-badge-text',
+      w ? BAND_TEXT[band] + ' · ' + w.result.score : 'Can\u2019t read this page'));
+    if (health.length) badge.appendChild(el('span', 'hrsc-warnmark', '!'));
     badge.addEventListener('click', () => { panelOpen = !panelOpen; if (!panelOpen) panelUid = null; renderCorner(); });
     corner.appendChild(badge);
 
@@ -604,7 +687,7 @@
 
     const panel = el('div', 'hrsc-panel');
     const head = el('div', 'hrsc-head');
-    head.appendChild(el('div', 'hrsc-title', 'CatfishGuard · ' + BAND_TEXT[r.band]));
+    head.appendChild(el('div', 'hrsc-title', r ? 'CatfishGuard · ' + BAND_TEXT[r.band] : 'CatfishGuard'));
     const close = el('button', 'hrsc-x', '×');
     close.type = 'button';
     close.setAttribute('aria-label', 'Close panel');
@@ -612,6 +695,31 @@
     head.appendChild(close);
     panel.appendChild(head);
 
+    if (health.length) {
+      const box = el('div', 'hrsc-health');
+      box.appendChild(el('div', 'hrsc-health-title', 'LinkedIn\u2019s page layout may have changed'));
+      box.appendChild(el('div', 'hrsc-note', 'CatfishGuard can\u2019t find: ' + health.join('; ') +
+        '. Scores, banners and dots may be missing or incomplete until the extension is updated. ' +
+        'Seeing nothing here does not mean a conversation is safe.'));
+      panel.appendChild(box);
+    }
+    if (r) renderResult(panel, shown, r, w);
+    renderFlagged(panel);
+
+    panel.appendChild(el('p', 'hrsc-tip',
+      'Before acting: verify the recruiter through the company’s own website, and never enter keys, codes, ' +
+      'logins or ID documents on a page reached from a message.'));
+
+    const foot = el('div', 'hrsc-foot');
+    const hide = el('button', 'hrsc-link', 'Hide for this content');
+    hide.type = 'button';
+    hide.addEventListener('click', () => { cornerDismissedKey = cKey; panelOpen = false; panelUid = null; removeCorner(); });
+    foot.appendChild(hide);
+    panel.appendChild(foot);
+    corner.appendChild(panel);
+  }
+
+  function renderResult(panel, shown, r, w) {
     panel.appendChild(el('p', 'hrsc-sub',
       'Score ' + r.score + '/100. These are risk signals and a prompt to look closer, not a verdict about this person.'));
     panel.appendChild(el('p', 'hrsc-scope', SCOPE_TEXT[shown.scope] +
@@ -666,18 +774,50 @@
       box.appendChild(body);
       panel.appendChild(box);
     }
+  }
 
-    panel.appendChild(el('p', 'hrsc-tip',
-      'Before acting: verify the recruiter through the company’s own website, and never enter keys, codes, ' +
-      'logins or ID documents on a page reached from a message.'));
+  /** Find the list row for a flagged conversation by its displayed names. */
+  function rowForKey(key) {
+    for (const item of document.querySelectorAll(SEL.convoItem)) {
+      const nm = item.querySelector(SEL.convoNames);
+      if (nm && namesKey([cleanName(nm.textContent)]) === key) return item;
+    }
+    return null;
+  }
 
-    const foot = el('div', 'hrsc-foot');
-    const hide = el('button', 'hrsc-link', 'Hide for this content');
-    hide.type = 'button';
-    hide.addEventListener('click', () => { cornerDismissedKey = w.key; panelOpen = false; panelUid = null; removeCorner(); });
-    foot.appendChild(hide);
-    panel.appendChild(foot);
-    corner.appendChild(panel);
+  function renderFlagged(panel) {
+    if (!flagged.size) return;
+    const entries = Array.from(flagged.entries())
+      .sort((a, b) => BAND_RANK[b[1].band] - BAND_RANK[a[1].band] || b[1].score - a[1].score);
+    const box = el('div', 'hrsc-flagged');
+    box.appendChild(el('div', 'hrsc-flagged-title', 'Conversations with risk signals in this tab (' + entries.length + ')'));
+    const ul = el('ul', 'hrsc-flagged-list');
+    for (const [key, f] of entries) {
+      const li = el('li', 'hrsc-flagged-item');
+      li.appendChild(el('span', 'hrsc-listdot hrsc-listdot-' + f.band));
+      const body = el('div', 'hrsc-flagged-body');
+      const row = el('div', 'hrsc-reason-row');
+      row.appendChild(el('span', 'hrsc-flagged-name', f.name));
+      row.appendChild(el('span', 'hrsc-points', BAND_SHORT[f.band] +
+        (f.source === 'conversation' ? ' · ' + f.score : ' · preview')));
+      body.appendChild(row);
+      body.appendChild(el('div', 'hrsc-note', f.why));
+      const item = rowForKey(key);
+      if (item) {
+        const go = el('button', 'hrsc-link', 'Show in list');
+        go.type = 'button';
+        go.addEventListener('click', () => {
+          try { item.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) { /* ignore */ }
+        });
+        body.appendChild(go);
+      }
+      li.appendChild(body);
+      ul.appendChild(li);
+    }
+    box.appendChild(ul);
+    box.appendChild(el('div', 'hrsc-note', 'Kept only until this tab is reloaded; never saved or sent. ' +
+      'Each entry lists risk signals in what was said, not a judgement about the person.'));
+    panel.appendChild(box);
   }
 
   // -------------------------------------------------------------------------
@@ -724,7 +864,8 @@
 
   function publicResult() {
     const w = worst();
-    return { result: w ? w.result : null, scope: w ? w.scope : null, units: scanned.length, context: lastContext, enabled };
+    return { result: w ? w.result : null, scope: w ? w.scope : null, units: scanned.length, context: lastContext, enabled,
+      health: health.slice(), flagged: flagged.size };
   }
 
   try {
@@ -774,6 +915,7 @@
     if (!contextOk()) { shutdown(); return; }
     if (location.href !== lastHref) {
       lastHref = location.href;
+      navAt = Date.now();
       panelOpen = false;
       panelUid = null;
       cornerDismissedKey = null;

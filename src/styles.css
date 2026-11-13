@@ -243,3 +243,37 @@
 @media (prefers-reduced-motion: no-preference) {
   .hrsc-badge { transition: opacity 0.15s ease; }
 }
+
+/* ------------------------------------------- layout warning + flagged list */
+
+.hrsc-warnmark {
+  display: inline-block;
+  margin-left: 6px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  border-radius: 50%;
+  text-align: center;
+  font-weight: 700;
+  font-size: 11px;
+  background: var(--hrsc-caution);
+  color: #fff;
+}
+.hrsc-health {
+  margin: 4px 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hrsc-caution);
+  background: var(--hrsc-caution-bg);
+  color: var(--hrsc-caution-fg);
+}
+.hrsc-health .hrsc-note { color: var(--hrsc-caution-fg); }
+.hrsc-health-title { font-weight: 700; font-size: 13px; }
+
+.hrsc-flagged { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hrsc-border); }
+.hrsc-flagged-title { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.hrsc-flagged-list { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 8px; }
+.hrsc-flagged-item { display: flex; align-items: flex-start; gap: 6px; }
+.hrsc-flagged-item .hrsc-listdot { margin-top: 3px; }
+.hrsc-flagged-body { min-width: 0; flex: 1; }
+.hrsc-flagged-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }

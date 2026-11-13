@@ -47,10 +47,13 @@ function showResult(res) {
     return;
   }
   if (!res.enabled) { box.className = 'muted'; box.textContent = 'Scanning is turned off.'; return; }
+  if (Array.isArray(res.health) && res.health.length) {
+    box.appendChild(el('p', 'small warn', 'LinkedIn\u2019s page layout may have changed. CatfishGuard can\u2019t find: ' +
+      res.health.map(String).join('; ') + '. Results may be missing; seeing nothing doesn\u2019t mean it\u2019s safe.'));
+  }
   const r = res.result;
   if (!r) {
-    box.className = 'muted';
-    box.textContent = 'Nothing to score here. Open a conversation, profile or job post.';
+    box.appendChild(el('p', 'muted', 'Nothing to score here. Open a conversation, profile or job post.'));
     return;
   }
   const head = el('div');

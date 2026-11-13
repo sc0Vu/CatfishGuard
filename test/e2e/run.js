@@ -239,9 +239,6 @@ async function main() {
 
     await check('a scored conversation keeps its dot after you leave it (matched by sender name, memory only)', async () => {
       const p = await openPage('https://www.linkedin.com/messaging/thread/2-abc/');
-      // Live markup carries the sender name in each message group (verified, 2026-11).
-      await p.evaluate(`(() => { const s = document.createElement('span'); s.className = 'msg-s-message-group__name';
-        s.textContent = ' Jane   (fixture) '; document.querySelector('.msg-s-event-listitem--other').prepend(s); })()`);
       await p.waitFor(`(() => { const d = ${dots}; return d.startsWith('hrsc-listdot-high') ? d : null; })()`);
       // Leave the conversation: no open row, no message list. Jane's preview alone scores low.
       await p.evaluate(`(() => {
@@ -253,6 +250,38 @@ async function main() {
         document.querySelector('.hrsc-root .hrsc-badge') && ${dots})()`);
       assert.equal(d, 'hrsc-listdot-high,hrsc-listdot-caution,-,-,-');
       assert.match(await p.evaluate(`document.querySelector('.hrsc-listdot').title`), /opened conversation/);
+      // The corner panel lists conversations with risk signals seen in this tab.
+      await p.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      const list = await p.waitFor(`(() => { const f = document.querySelector('.hrsc-flagged'); return f && f.innerText; })()`);
+      // Jane: the full conversation (68, high) first; Sam: risky list preview only (caution)
+      assert.match(list, /Conversations with risk signals in this tab \(2\)/);
+      assert.match(list, /Jane \(fixture\)\s+High · 68[\s\S]*Sam \(fixture\)\s+Caution · preview/);
+      assert.doesNotMatch(list, /Priya|Alex/, 'low-scoring and own-preview rows are not listed');
+      assert.doesNotMatch(list, /scammer|suspicious/i);
+      await p.evaluate(`document.querySelector('.hrsc-flagged').scrollIntoView()`);
+      await p.shot('2b-flagged-list');
+      await p.close();
+    });
+
+    await check('layout check: quiet on a healthy page, warns when LinkedIn markup goes missing', async () => {
+      const p = await openPage('https://www.linkedin.com/messaging/thread/2-abc/');
+      await p.waitFor(badge);
+      await sleep(5600); // past the post-navigation grace period
+      assert.equal(await p.evaluate(`!!document.querySelector('.hrsc-warnmark')`), false, 'false layout alarm on the fixture');
+      // Simulate a LinkedIn redesign: list rows and sender names re-rendered under new class names.
+      await p.evaluate(`(() => {
+        const rename = (sel, from, to) => document.querySelectorAll(sel).forEach((n) => {
+          n.outerHTML = n.outerHTML.split(from).join(to); });
+        rename('.msg-conversation-listitem', 'msg-conversation', 'renamed-conversation');
+        rename('.msg-s-message-group__name', 'msg-s-message-group__name', 'renamed-name');
+      })()`);
+      await p.waitFor(`!!document.querySelector('.hrsc-warnmark')`);
+      await p.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      const h = await p.waitFor(`(() => { const b = document.querySelector('.hrsc-health'); return b && b.innerText; })()`);
+      assert.match(h, /page layout may have changed/);
+      assert.match(h, /the conversation list; sender names in a conversation/);
+      assert.match(h, /does not mean a conversation is safe/);
+      await p.shot('4-layout-warning');
       await p.close();
     });
 
@@ -497,7 +526,7 @@ async function main() {
 
     await check('"Hide for this content" removes the corner UI until content changes', async () => {
       await msgPage.evaluate(`document.querySelector('.hrsc-badge').click()`);
-      await msgPage.evaluate(`document.querySelector('.hrsc-link').click()`);
+      await msgPage.evaluate(`document.querySelector('.hrsc-foot .hrsc-link').click()`);
       await sleep(1500);
       assert.equal(await msgPage.evaluate(`!!document.querySelector('.hrsc-root')`), false);
     });
@@ -538,6 +567,7 @@ async function main() {
           '<div class="msg-s-message-list-container msg-s-message-list-container--column-reversed" style="display:flex;flex-direction:column-reverse">' +
           '<div class="msg-s-message-list"><ul class="msg-s-message-list-content">' +
           '<li class="msg-s-message-list__event"><div class="msg-s-event-listitem msg-s-event-listitem--other">' +
+          '<div class="msg-s-message-group__meta"><span class="msg-s-message-group__name">Sam (fixture)</span></div>' +
           '<div class="msg-s-event-listitem__actions-container"><button title="Reply to this message"><span class="artdeco-button__text">Reply urgently</span></button></div>' +
           '<p class="msg-s-event-listitem__body">Quick question: are you open to a role? Add me on WhatsApp, registration fee is refundable.</p></div></li>' +
           '<li class="msg-s-message-list__event"><div class="msg-s-event-listitem"><p class="msg-s-event-listitem__body">Sure, but is there a fee? I use telegram too.</p></div></li>' +
