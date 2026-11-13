@@ -875,6 +875,9 @@
     { name: 'Netflix', tokens: ['netflix'], fuzzy: true, domains: ['netflix.com'] },
     { name: 'Revolut', tokens: ['revolut'], fuzzy: true, domains: ['revolut.com'] },
     { name: 'Optiver', tokens: ['optiver'], fuzzy: true, domains: ['optiver.com'] },
+    // Reported 2026-11: fake web3 "technical recruiter" claiming peaq, scheduling
+    // via a calendly.com/<name>-peaq link. Not fuzzy: one edit from "peak".
+    { name: 'peaq', tokens: ['peaq'], domains: ['peaq.xyz', 'peaq.network'] },
   ];
   const OFFICIAL = new Map();
   for (const b of BRANDS) for (const d of b.domains) OFFICIAL.set(d, b);

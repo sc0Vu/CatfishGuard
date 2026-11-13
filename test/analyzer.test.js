@@ -521,6 +521,26 @@ test('overrides: safety floors hold even against hostile settings', () => {
   assert.equal(b.score, 60);
 });
 
+test('bundled brand peaq: claimed recruiter with only a calendly link -> +15; exact-match only', () => {
+  // Reported thread (inbound only, names replaced). Hand-derived:
+  // crypto 5 (区块链) + devlure 10 (GitHub 账号) + pressure 8 (正在会议中等你)
+  // + pattern 15 (crypto + devlure + pressure) + impersonation 15
+  // (claims peaq, no link to peaq.xyz / peaq.network) = 53.
+  const zh = '我关注了您的 GitHub 账号，也看到了您在一个开源项目中的贡献。我是 peaq 的技术招聘负责人，' +
+    '我们目前正在组建团队，负责一个全新的区块链基础设施项目。 我想为您安排一场与我们工程负责人的面试。 ' +
+    'https://calendly.com/lead-peaq/30min 嗨， Lead 正在会议中等你。';
+  const r = A.analyze(zh, ['https://calendly.com/lead-peaq/30min']);
+  assert.equal(cat(r, 'impersonation').points, 15);
+  assert.match(cat(r, 'impersonation').matches[0].term, /claims to recruit for peaq/);
+  assert.equal(r.score, 53);
+  assert.equal(r.band, 'caution');
+  // A link to peaq's own domain answers the claim.
+  assert.equal(cat(A.analyze('我是 peaq 的技术招聘负责人', ['https://www.peaq.xyz/careers']), 'impersonation'), undefined);
+  // "peak" is a common word one edit away: never a lookalike.
+  assert.equal(A.analyze('apply', ['https://peak.com/jobs']).score, 0);
+  assert.equal(A.analyze('apply', ['https://peak-careers.com/jobs']).score, 0);
+});
+
 test('overrides: a user brand catches the claimed-employer mismatch and lookalikes', () => {
   const brand = { brands: [{ name: 'nexachain', domains: ['nexachain.example'] }] };
   const zh = '我是 nexachain 的技术招聘负责人，我们正在组建团队，负责一个全新的区块链基础设施项目。我关注了您的 GitHub 账号。' +
