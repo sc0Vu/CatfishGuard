@@ -191,6 +191,12 @@ real MetaMask list. Set `CFG_SHOTS=dir` to save e2e screenshots.
   own site, and never enter keys, codes, logins or ID documents on a page reached
   from a message.
 
+## License
+CatfishGuard is licensed under the [Apache License 2.0](LICENSE). The licence
+covers the code, not the name: "CatfishGuard" and its icon are not licensed
+for use by forks (Apache-2.0 §6), so please publish forks under a different
+name. Bundled third-party data keeps its own licence (below).
+
 ## Third-party data
 `src/psl.js` is the Public Suffix List, © Mozilla and contributors, under the
 [Mozilla Public License 2.0](https://mozilla.org/MPL/2.0/). It is vendored as

@@ -9,5 +9,6 @@
     "icons": "python3 tools/mk_icons.py",
     "psl": "python3 tools/mk_psl.py",
     "package": "python3 tools/package.py"
-  }
+  },
+  "license": "Apache-2.0"
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Build the Chrome Web Store upload: dist/catfishguard-<version>.zip
 
-Only what the extension loads ships: manifest.json, src/, data/, icons/.
+Only what the extension loads ships: manifest.json, src/, data/, icons/,
+plus LICENSE.
 Tests, tools, notes (CLAUDE.md, PROGRESS.md) and package.json stay out.
 Fails loudly if the manifest points at a file that isn't packaged, if the
 manifest and package.json versions disagree, or if anything unexpected
@@ -53,7 +54,7 @@ def main():
     if pkg.get('version') != version:
         fail('version mismatch: manifest %s vs package.json %s' % (version, pkg.get('version')))
 
-    files = ['manifest.json']
+    files = ['manifest.json', 'LICENSE']  # Apache-2.0 §4: copies carry the licence
     for d in SHIP_DIRS:
         for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, d)):
             dirnames.sort()

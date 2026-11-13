@@ -308,6 +308,13 @@ Dashboard's **Data Use** certifications (limited use, no sale) to match PRIVACY.
   loads the real extension in headless Chrome. Add a case per new category or
   rule; assert expected scores derived by hand, never mirror current output.
 
+## License
+Apache-2.0 (`LICENSE`, official text, unmodified). Chosen for the §6 trademark
+clause (forks may not use the CatfishGuard name/icon; the store-impersonation
+risk is copycat clones) and the patent grant, while staying permissive so the
+detection logic can be reused widely. `src/psl.js` stays MPL-2.0 (file-level
+copyleft, compatible). The store zip includes `LICENSE`.
+
 ## Conventions
 - Vanilla JS, no framework/bundler. Keep `analyzer.js` dependency-free and pure
   (text + links + blocklist in → score out) so it stays unit-testable.
