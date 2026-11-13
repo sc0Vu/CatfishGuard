@@ -62,6 +62,7 @@ function startServer() {
         const name = req.url.startsWith('/messaging/thread/2-zh') ? 'messaging-zh.html'
           : req.url.startsWith('/messaging/') ? 'messaging.html'
           : req.url.startsWith('/in/') ? 'profile-legit.html'
+          : req.url.startsWith('/feed/zh-popup') ? 'feed-overlay-zh.html'
             : req.url.startsWith('/feed') ? 'feed.html' : null;
         if (name) {
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'set-cookie': 'li_at=SECRET; Path=/; Secure' });
@@ -543,6 +544,31 @@ async function main() {
       assert.equal(scoreOf(t), 0, t);
       assert.equal(await msgPage.evaluate(`document.querySelectorAll('.hrsc-banner-root, .hrsc-listdot').length`), 0);
       await msgPage.shot('3-profile-low');
+    });
+
+    await check('live-structure chat popup on the feed (zh): 53 caution, own link ignored, row + panel list', async () => {
+      const p = await openPage('https://www.linkedin.com/feed/zh-popup/');
+      const t = await p.waitFor(`(() => { const t = ${badge}; return t && /· 53$/.test(t.trim()) ? t : null; })()`);
+      // inbound only: crypto 区块链 5 + pressure 会议中等你 8 + devlure github 账号 10 + pattern 15
+      // + impersonation 15 (claims peaq; the recruiter only links calendly). The user's own
+      // peaq.xyz link and its unrolled preview card must not answer the claim (else 38),
+      // and the feed post behind the popup ("urgent", "telegram") is never scored.
+      assert.match(t, /Some risk signals/);
+      const b = await p.waitFor(`(() => { const b = document.querySelector('.msg-overlay-conversation-bubble .hrsc-banner-root'); return b && b.innerText; })()`);
+      assert.match(b, /Some risk signals in this conversation/);
+      await p.evaluate(`document.querySelector('.hrsc-badge').click()`);
+      const panel = await p.waitFor(panelText);
+      assert.match(panel, /claims to recruit for peaq/);
+      assert.match(panel, /messages from the other person only/);
+      assert.doesNotMatch(panel, /telegram|urgent/i, 'feed post or own messages leaked into the score');
+      const list = await p.waitFor(`(() => { const f = document.querySelector('.hrsc-flagged'); return f && f.innerText; })()`);
+      assert.match(list, /Recruiter \(fixture\)\s+Caution · 53/);
+      const dot = await p.evaluate(`(() => { const d = document.querySelector('.msg-overlay-list-bubble .hrsc-listdot'); return d && d.className + ' | ' + d.title; })()`);
+      assert.match(dot, /hrsc-listdot-caution \| .*opened conversation/);
+      await sleep(5600);
+      assert.equal(await p.evaluate(`!!document.querySelector('.hrsc-warnmark')`), false, 'false layout alarm on live markup');
+      await p.shot('5-feed-popup-zh');
+      await p.close();
     });
 
     await check('feed is not scored; an open message overlay is, with its own banner', async () => {

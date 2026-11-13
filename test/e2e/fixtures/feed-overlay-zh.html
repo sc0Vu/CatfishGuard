@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Feed | LinkedIn (fixture, zh chat popup)</title>
+<style>
+body{font-family:sans-serif;margin:0;background:#f4f2ee}
+.visually-hidden,.a11y-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.hidden{display:none}
+.msg-overlay-list-bubble{position:fixed;right:16px;bottom:0;width:300px;background:#fff;border:1px solid #ccc}
+.msg-overlay-conversation-bubble{position:fixed;right:330px;bottom:0;width:400px;height:560px;background:#fff;border:1px solid #ccc;display:flex}
+.relative.display-flex.flex-column{display:flex;flex-direction:column;flex:1;min-height:0}
+.msg-s-message-list-container{display:flex;flex:1;min-height:0}
+.msg-s-message-list-container--column-reversed{flex-direction:column-reverse}
+.msg-s-message-list{overflow:auto;flex:1}.msg-s-message-list-content{list-style:none;margin:0;padding:8px}
+.msg-s-event-listitem__profile-picture,.msg-facepile-grid__img{display:none}
+[contenteditable]{border:1px solid #ccc;min-height:32px;padding:6px}
+</style></head>
+<body>
+<!-- Anonymised copy of a live LinkedIn feed page's chat popups (2026-11): the open
+     conversation bubble and the messaging-list row for the same conversation.
+     Names, profile ids, photo URLs, message URNs, the user's own profile link and
+     the open-source project were replaced. Class names, nesting, data attributes,
+     a11y spans, aria-labels and the column-reversed container are kept as observed. -->
+<main class="scaffold-layout__main"><div class="feed-shared-update-v2"><p>Feed post text: urgent crypto hiring, DM me on telegram.</p></div></main>
+
+<div class="msg-overlay-list-bubble">
+  <header><button class="msg-overlay-bubble-header__button">Messaging</button></header>
+  <section class="scrollable msg-overlay-list-bubble__content">
+    <div class="msg-conversation-listitem__link msg-overlay-list-bubble__convo-item--v2" tabindex="0">
+      <div class="msg-conversation-card msg-overlay-list-bubble__convo-card">
+        <div class="msg-overlay-list-bubble__convo-card-content-wrapper fl">
+          <div class="msg-conversation-card__row align-items-center display-flex">
+            <h3 class="msg-conversation-listitem__participant-names msg-conversation-card__participant-names truncate t-14 t-black
+                t-normal">
+              <div class="display-flex justify-left align-items-center truncate">
+                <span class="truncate">
+                  Recruiter (fixture)
+                </span>
+              </div>
+            </h3>
+            <time class="msg-overlay-list-bubble-item__time-stamp t-12">Nov 4</time>
+            <div class="msg-overlay-list-bubble__inbox-shortcuts-container"><div class="msg-overlay-list-bubble__inbox-shortcuts">
+              <button aria-expanded="false" class="msg-thread-actions__control artdeco-button" type="button">
+                <span class="visually-hidden">Open the options list in your conversation with Me (fixture) and Recruiter (fixture)</span></button>
+            </div></div>
+          </div>
+          <div class="msg-conversation-card__row justify-space-between">
+            <div class="msg-overlay-list-bubble__message-snippet-container--narrow-two-line">
+              <p class="msg-overlay-list-bubble__message-snippet--v2
+                  m0 t-12
+                  t-black--light">
+                  Recruiter: 你好, Me
+我知道你很忙。
+能否请你安排一个对你方便的时间，我们开个会？
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="ember794" data-feedback-redacted="" data-msg-overlay-conversation-bubble-open="" data-msg-overlay-conversation-bubble-is-minimized="false" tabindex="-1" class="msg-convo-wrapper msg-overlay-conversation-bubble msg-overlay-conversation-bubble--default-inactive ml4
+    msg-overlay-conversation-bubble--is-active
+    msg-overlay-conversation-bubble--jumbo
+    " role="dialog" aria-label="Messaging" data-view-name="message-overlay-conversation-bubble-item">
+ <div class="relative display-flex flex-column flex-grow-1">
+  <header class="msg-overlay-conversation-bubble-header justify-space-between" tabindex="0">
+   <div class="msg-overlay-conversation-bubble-header--fade-in display-flex align-items-center flex-grow-1 overflow-hidden">
+    <div class="msg-facepile-grid--no-facepile msg-facepile-grid msg-facepile-grid--1">
+     <img src="https://media.licdn.com/dms/image/v2/FIXTURE-RECRUITER/profile-displayphoto-scale_100_100/0/1?e=1&amp;v=beta&amp;t=x" alt="Recruiter (fixture)" class="msg-facepile-grid__img msg-facepile-grid__img--person"></div>
+    <h2 class="pr1 msg-overlay-bubble-header__title truncate t-14 t-bold" tabindex="-1">
+     <a href="/in/ACoAAFixtureRecruiter/"><span class="t-14 t-bold hoverable-link-text">Recruiter (fixture)</span></a></h2>
+   </div>
+   <div class="msg-overlay-bubble-header__controls display-flex align-items-center">
+    <button aria-expanded="false" class="msg-thread-actions__control artdeco-button" type="button">
+     <span class="visually-hidden">Open the options list in your conversation with Me (fixture) and Recruiter (fixture)</span></button>
+    <button aria-expanded="true" class="msg-overlay-bubble-header__control msg-overlay-conversation-bubble__expand-btn artdeco-button">
+     <span class="artdeco-button__text">Minimize your conversation with Me and Recruiter</span></button>
+    <button class="msg-overlay-bubble-header__control artdeco-button">
+     <span class="artdeco-button__text">Close your conversation with Me (fixture) and Recruiter (fixture)</span></button>
+   </div>
+  </header>
+  <div class="msg-overlay-conversation-bubble__content-wrapper relative display-flex flex-column">
+   <div class="display-flex flex-column flex-grow-1">
+    <div><div class="msg-thread-container msg-thread__thread-actions-tray"></div></div>
+    <div class="msg-s-message-list-container relative display-flex mbA msg-s-message-list-container--column-reversed">
+     <div class="msg-s-message-list msg-s-message-list--scroll-buffer full-width scrollable">
+      <ul class="msg-s-message-list-content list-style-none full-width mbA">
+       <li class="msg-s-message-list__top-of-list"></li>
+       <li class="msg-s-message-list__loader hidden"><div class="artdeco-loader artdeco-loader--small"><span class="artdeco-loader__bars"></span></div></li>
+
+       <li class="msg-s-message-list__event clearfix">
+        <time class="msg-s-message-list__time-heading t-12">Oct 27</time>
+        <span class="msg-s-event-listitem--group-a11y-heading visually-hidden">Recruiter (fixture) sent the following message at 7:34 AM</span>
+        <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group msg-s-event-listitem--inmail msg-s-event-listitem--other" data-event-urn="urn:li:msg_message:(fixture,1)" data-view-name="message-list-item">
+         <a tabindex="0" href="https://www.linkedin.com/in/ACoAAFixtureRecruiter" class="ember-view msg-s-event-listitem__link">
+          <span class="a11y-text">View Recruiter’s profile</span>
+          <img title="Recruiter (fixture)" src="https://media.licdn.com/dms/image/v2/FIXTURE-RECRUITER/profile-displayphoto-scale_100_100/0/1?e=1&amp;v=beta&amp;t=x" alt="Recruiter (fixture)" class="msg-s-event-listitem__profile-picture EntityPhoto-circle-2"></a>
+         <div class="msg-s-message-group__meta"><span>
+          <a class="inline-block v-align-middle" href="https://www.linkedin.com/in/ACoAAFixtureRecruiter">
+           <span class="msg-s-message-group__profile-link msg-s-message-group__name t-14 t-black t-bold hoverable-link-text">
+               Recruiter (fixture)
+           </span></a>
+          <svg role="img" aria-hidden="false" aria-label="LinkedIn Premium" width="14" height="14"></svg></span>
+          <time class="msg-s-message-group__timestamp t-12">7:34 AM</time></div>
+         <div class="msg-s-event-listitem__message-bubble msg-s-event-listitem__message-bubble--msg-fwd-enabled" tabindex="0">
+          <div class="msg-s-event-listitem__actions-container artdeco-card">
+           <div class="msg-s-event-listitem__reactions-options-ellipsis artdeco-dropdown" aria-label="Options for the message from Recruiter: 您好，我关注了您的 GitHub 账号">
+            <button aria-expanded="false" class="msg-s-event-listitem__options-trigger" type="button"></button></div>
+          </div>
+          <h3 class="msg-s-event-listitem__subject t-14 t-black--light t-bold">
+            一个区块链基础设施项目的简短沟通
+          </h3>
+          <div class="msg-s-event-with-indicator display-flex "><div class="msg-s-event__content" dir="ltr">
+           <p class="msg-s-event-listitem__body t-14 t-black--light t-normal
+               "><!---->您好，<!----><br><a target="_blank" tabindex="0" href="https://linkedin.com/in/me-fixture"><!---->https://linkedin.com/in/me-fixture<!----></a><br><!---->我关注了您的 GitHub 账号，也看到了您在一个开源项目中的贡献，非常令人印象深刻。我是 peaq 的技术招聘负责人，我们目前正在组建团队，负责一个全新的区块链基础设施项目。<!----><br><!---->我们正在寻找像您这样具备相关经验的人才。该职位支持远程办公，提供全职或兼职机会。<!----><br><!---->您看本周是否方便进行一次简短的沟通，互相了解一下？<!----><br><!---->祝好，<!----><br><br><br><!---->Recruiter (fixture)<!----><!----></p>
+          </div></div>
+         </div>
+        </div>
+       </li>
+
+       <li class="msg-s-message-list__event clearfix">
+        <span class="msg-s-event-listitem--group-a11y-heading visually-hidden">Me (fixture) sent the following messages at 3:02 PM</span>
+        <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group" data-event-urn="urn:li:msg_message:(fixture,2)" data-view-name="message-list-item">
+         <a tabindex="0" href="https://www.linkedin.com/in/ACoAAFixtureMe" class="ember-view msg-s-event-listitem__link">
+          <span class="a11y-text">View Me’s profile</span>
+          <img title="Me (fixture)" src="https://media.licdn.com/dms/image/v2/FIXTURE-ME/profile-displayphoto-scale_100_100/0/1?e=1&amp;v=beta&amp;t=x" alt="Me (fixture)" class="msg-s-event-listitem__profile-picture EntityPhoto-circle-2"></a>
+         <div class="msg-s-message-group__meta"><span>
+          <a class="inline-block v-align-middle" href="https://www.linkedin.com/in/ACoAAFixtureMe">
+           <span class="msg-s-message-group__profile-link msg-s-message-group__name t-14 t-black t-bold hoverable-link-text">
+               Me (fixture)
+           </span></a>
+          <svg role="img" aria-hidden="false" aria-label="LinkedIn Verified" width="16" height="16"></svg></span>
+          <time class="msg-s-message-group__timestamp t-12">3:02 PM</time></div>
+         <div class="msg-s-event-listitem__message-bubble" tabindex="0">
+          <div class="msg-s-event-listitem__actions-container artdeco-card">
+           <div class="msg-s-event-listitem__reactions-options-ellipsis artdeco-dropdown" aria-label="Options for the message from Me: 您好 謝謝您的訊息。"></div></div>
+          <div class="msg-s-event-with-indicator display-flex "><div class="msg-s-event__content" dir="ltr">
+           <p class="msg-s-event-listitem__body t-14"><!---->您好<!----><br><!---->謝謝您的訊息。<!----><br><!---->請問有該公司的網站嗎？想先看一下他們的產品<!----><!----></p>
+          </div></div>
+         </div>
+        </div>
+       </li>
+
+       <li class="msg-s-message-list__event clearfix">
+        <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group" data-event-urn="urn:li:msg_message:(fixture,3)" data-view-name="message-list-item">
+         <div class="msg-s-message-group__meta"><span>
+           <span class="msg-s-message-group__profile-link msg-s-message-group__name t-14 t-black t-bold">Me (fixture)</span></span>
+          <time class="msg-s-message-group__timestamp t-12">3:04 PM</time></div>
+         <div class="msg-s-event-listitem__message-bubble" tabindex="0">
+          <div class="msg-s-event-with-indicator display-flex "><div class="msg-s-event__content" dir="ltr">
+           <p class="msg-s-event-listitem__body t-14"><!---->是這個嗎<span class="white-space-pre"> </span><a target="_blank" tabindex="0" href="https://www.peaq.xyz"><!---->https://www.peaq.xyz<!----></a><!----></p>
+          </div></div>
+         </div>
+         <!-- The user's own link unrolls into a preview card. Its peaq.xyz link must NOT
+              count as the recruiter linking to the claimed company's domain. -->
+         <div class="msg-s-event-listitem__message-bubble msg-s-event-listitem__message-bubble--msg-actions-enabled" tabindex="0">
+          <div class="msg-s-event-with-indicator display-flex "><div class="msg-s-event__content">
+           <div class="msg-s-event-listitem__unrolled-update-v2 artdeco-card overflow-hidden">
+            <article class="update-components-article" role="presentation">
+             <a aria-label="Open article: peaq by peaq.xyz, graphic" target="_blank" href="https://www.peaq.xyz"></a>
+             <a class="update-components-article__meta" target="_blank" aria-label="peaq" href="https://www.peaq.xyz">
+              <div class="update-components-article__title"><span dir="ltr">peaq</span></div>
+              <span class="update-components-article__subtitle--inset">peaq.xyz</span></a>
+            </article>
+           </div>
+          </div></div>
+         </div>
+        </div>
+       </li>
+
+       <li class="msg-s-message-list__event clearfix">
+        <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group" data-event-urn="urn:li:msg_message:(fixture,4)" data-view-name="message-list-item">
+         <div class="msg-s-message-group__meta"><span>
+           <span class="msg-s-message-group__profile-link msg-s-message-group__name t-14 t-black t-bold">Me (fixture)</span></span>
+          <time class="msg-s-message-group__timestamp t-12">3:39 PM</time></div>
+         <div class="msg-s-event-listitem__message-bubble" tabindex="0">
+          <div class="msg-s-event-with-indicator display-flex "><div class="msg-s-event__content" dir="ltr">
+           <p class="msg-s-event-listitem__body t-14"><!---->請問這這週什麼時間方便？我平日都可以<!----><!----></p>
+          </div></div>
+         </div>
+        </div>
+       </li>
+
+       <li class="msg-s-message-list__event clearfix">
+        <span class="msg-s-event-listitem--group-a11y-heading visually-hidden">Recruiter (fixture) sent the following messages at 5:21 PM</span>
+        <div class="msg-s-event-listitem msg-s-event-listitem--m2m-msg-followed-by-date-boundary msg-s-event-listitem--last-in-group msg-s-event-listitem--other" data-event-urn="urn:li:msg_message:(fixture,5)" data-view-name="message-list-item">
+         <a tabindex="0" href="https://www.linkedin.com/in/ACoAAFixtureRecruiter" class="ember-view msg-s-event-listitem__link">
+          <span class="a11y-text">View Recruiter’s profile</span>
+          <img title="Recruiter (fixture)" src="https://media.licdn.com/dms/image/v2/FIXTURE-RECRUITER/profile-displayphoto-scale_100_100/0/1?e=1&amp;v=beta&amp;t=x" alt="Recruiter (fixture)" class="msg-s-event-listitem__profile-picture EntityPhoto-circle-2"></a>
+         <div class="msg-s-message-group__meta"><span>
+          <a class="inline-block v-align-middle" href="https://www.linkedin.com/in/ACoAAFixtureRecruiter">
+           <span class="msg-s-message-group__profile-link msg-s-message-group__name t-14 t-black t-bold hoverable-link-text">
+               Recruiter (fixture)
+           </span></a></span>
+          <time class="msg-s-message-group__timestamp t-12">5:21 PM</time></div>
+         <div class="msg-s-event-listitem__message-bubble" tabindex="0">
+          <div class="msg-s-event-listitem__actions-container artdeco-card">
+           <div class="msg-s-event-listitem__reactions-options-ellipsis artdeco-dropdown" aria-label="Options for the message from Recruiter: 感谢您的关注。"></div></div>
+          <div class="msg-s-event-with-indicator display-flex "><div class="msg-s-event__content" dir="ltr">
+           <p class="msg-s-event-listitem__body t-14"><!---->感谢您的关注。我想为您安排一场与我们工程负责人的面试。<!----><br><a target="_blank" tabindex="0" href="https://calendly.com/lead-peaq/30min"><!---->https://calendly.com/lead-peaq/30min<!----></a><br><!---->预约好时间后，请告知我。<!----><!----></p>
+          </div></div>
+         </div>
+        </div>
+       </li>
+
+       <li class="msg-s-message-list__event clearfix">
+        <time class="msg-s-message-list__time-heading t-12">Nov 3</time>
+        <div class="msg-s-event-listitem msg-s-event-listitem--m2m-msg-followed-by-date-boundary msg-s-event-listitem--last-in-group msg-s-event-listitem--other" data-event-urn="urn:li:msg_message:(fixture,6)" data-view-name="message-list-item">
+         <div class="msg-s-message-group__meta"><span>
+           <span class="msg-s-message-group__profile-link msg-s-message-group__name t-14 t-black t-bold">Recruiter (fixture)</span></span>
+          <time class="msg-s-message-group__timestamp t-12">9:05 PM</time></div>
+         <div class="msg-s-event-listitem__message-bubble" tabindex="0">
+          <div class="msg-s-event-with-indicator display-flex "><div class="msg-s-event__content" dir="ltr">
+           <p class="msg-s-event-listitem__body t-14"><!---->嗨 Me，<!----><br><!---->Lead 正在会议中等你。<!----><!----></p>
+          </div></div>
+         </div>
+        </div>
+       </li>
+
+       <li class="msg-s-message-list__event clearfix msg-s-message-list__last-msg-ember805">
+        <time class="msg-s-message-list__time-heading t-12">Nov 4</time>
+        <div class="msg-s-event-listitem msg-s-event-listitem--m2m-msg-followed-by-date-boundary msg-s-event-listitem--last-in-group msg-s-event-listitem--has-seen-receipts msg-s-event-listitem--other" data-event-urn="urn:li:msg_message:(fixture,7)" data-view-name="message-list-item">
+         <div class="msg-s-message-group__meta"><span>
+           <span class="msg-s-message-group__profile-link msg-s-message-group__name t-14 t-black t-bold">Recruiter (fixture)</span></span>
+          <time class="msg-s-message-group__timestamp t-12">10:45 AM</time></div>
+         <div class="msg-s-event-listitem__message-bubble" tabindex="0">
+          <div class="msg-s-event-with-indicator display-flex "><div class="msg-s-event__content" dir="ltr">
+           <p class="msg-s-event-listitem__body t-14"><!---->你好, Me<!----><br><!---->我知道你很忙。<!----><br><!---->能否请你安排一个对你方便的时间，我们开个会？<!----><!----></p>
+          </div></div>
+         </div>
+         <div class="msg-s-event-listitem__seen-receipts t-12">
+          <img title="Seen by Recruiter (fixture) at 10:45 AM." src="https://media.licdn.com/dms/image/v2/FIXTURE-RECRUITER/profile-displayphoto-scale_100_100/0/1?e=1&amp;v=beta&amp;t=x" alt="Seen by Recruiter (fixture) at 10:45 AM." class="msg-s-event-listitem__seen-receipt-photo EntityPhoto-circle-1"></div>
+        </div>
+       </li>
+       <li class="msg-s-message-list__typing-indicator-container--without-seen-receipt"></li>
+       <li class="msg-s-message-list__bottom-of-list"></li>
+      </ul>
+     </div>
+    </div>
+    <form class="msg-form msg-form--thread-footer-feature">
+     <div class="msg-form__contenteditable t-14" contenteditable="true" role="textbox" aria-label="Write a message…"><p><br></p></div>
+     <button title="Attach a file to your conversation with Recruiter (fixture)" type="button">Attach</button>
+     <button class="msg-form__send-button artdeco-button" disabled="" type="submit">Send</button>
+    </form>
+   </div>
+  </div>
+ </div>
+</div>
+</body></html>
