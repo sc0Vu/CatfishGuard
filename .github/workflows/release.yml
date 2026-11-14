@@ -1,0 +1,82 @@
+# Build the store zip and attach it to a GitHub Release.
+#
+# - Push a tag vX.Y.Z (matching manifest.json "version") -> release created.
+# - Or run it manually ("Run workflow") with an existing tag, e.g. v0.1.0,
+#   to build a release for a tag pushed before this workflow existed.
+#
+# Uploading to the Chrome Web Store stays manual (Developer Dashboard).
+# Actions are pinned to full commit SHAs; bump them deliberately.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release (e.g. v0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the release and upload the zip; nothing else
+    env:
+      # From env, never interpolated into scripts: tag names are user input.
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Validate tag name
+        run: |
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::'$TAG' is not a vX.Y.Z tag"; exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Tag matches manifest version
+        run: |
+          v=$(python3 -c 'import json;print(json.load(open("manifest.json"))["version"])')
+          if [ "v$v" != "$TAG" ]; then
+            echo "::error::tag $TAG does not match manifest.json version $v"; exit 1
+          fi
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build zip
+        run: python3 tools/package.py
+
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          zip="dist/catfishguard-${TAG#v}.zip"
+          sha=$(sha256sum "$zip" | cut -d' ' -f1)
+          notes=$(printf '%s\n\n%s\n%s\n\n%s\n' \
+            "CatfishGuard ${TAG} — the extension package built from this tag (\`npm run package\`)." \
+            "- Chrome Web Store: https://chromewebstore.google.com/detail/catfishguard/poplmbknhakcgjmbdaaidlhhjhdhmdbd" \
+            "- To load it unpacked instead: unzip, then chrome://extensions → Developer mode → Load unpacked." \
+            "SHA-256 of the zip: \`${sha}\`")
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$zip" --clobber
+          else
+            gh release create "$TAG" "$zip" --verify-tag --title "CatfishGuard ${TAG}" --notes "$notes"
+          fi
+          echo "Released $zip ($sha)"

@@ -303,6 +303,10 @@ Dashboard's **Data Use** certifications (limited use, no sale) to match PRIVACY.
 - Release zip: `npm run package` (`tools/package.py`) → `dist/catfishguard-<ver>.zip`
   with only manifest + src/ data/ icons/; checks manifest refs and that
   manifest/package.json versions match; reproducible bytes.
+- GitHub Release: push a `vX.Y.Z` tag matching manifest `version` →
+  `.github/workflows/release.yml` runs unit tests, builds the zip and attaches
+  it to the release (manual "Run workflow" with a tag for existing tags). The
+  Chrome Web Store upload stays manual. Actions pinned to commit SHAs.
 - Analyzer is testable in isolation with Node via a `vm` sandbox that provides
   `self` + `URL` (`test/helpers.js`). `npm test` runs unit tests; `npm run test:e2e`
   loads the real extension in headless Chrome. Add a case per new category or
