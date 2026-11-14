@@ -26,7 +26,13 @@ worth a closer look. You can turn it off in the popup.
 
 The result is a prompt to look closer, never a verdict about a person.
 
-## Install (unpacked)
+## Install
+**[Get CatfishGuard on the Chrome Web Store](https://chromewebstore.google.com/detail/catfishguard/poplmbknhakcgjmbdaaidlhhjhdhmdbd)**, then open LinkedIn
+(reload tabs that were already open).
+
+Website: https://sc0vu.github.io/CatfishGuard/
+
+### From source (unpacked, for development)
 1. `chrome://extensions` → enable **Developer mode**.
 2. **Load unpacked** → select this folder.
 3. Open LinkedIn (reload tabs that were already open).
